@@ -1,71 +1,82 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { Address } from "~~/components/scaffold-eth";
+import { OktoContextType, useOkto } from "okto-sdk-react";
+import { DocumentTextIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 const Home: NextPage = () => {
-  const { address: connectedAddress } = useAccount();
+  const { getUserDetails } = useOkto() as OktoContextType;
+  const [userData, setUserData] = useState<any>(null);
 
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const data = await getUserDetails();
+        console.log("USERDATA", data);
+        setUserData(data);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, [getUserDetails]);
   return (
-    <>
-      <div className="flex items-center flex-col flex-grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Scaffold-ETH 2</span>
+    <div className="min-h-screen bg-gradient-to-br from-base-100 to-base-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="text-center animate-fade-in">
+          <h1 className="text-6xl font-bold mb-6">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">ThreeDrive</span>
           </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col sm:flex-row">
-            <p className="my-2 font-medium">Connected Address:</p>
-            <Address address={connectedAddress} />
-          </div>
-
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
+          <p className="text-2xl mb-12 text-base-content/80">
+            Collaborative document editing, powered by blockchain technology
           </p>
         </div>
 
-        <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
+        <div className="grid md:grid-cols-3 gap-8 mt-16">
+          <div className="bg-base-100 p-8 rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <DocumentTextIcon className="h-12 w-12 mb-4 text-primary mx-auto" />
+            <h2 className="text-xl font-semibold mb-4 text-center">Real-time Collaboration</h2>
+            <p className="text-base-content/70 text-center">
+              Edit documents simultaneously with your team, with changes synced instantly on-chain
+            </p>
+          </div>
+
+          <div className="bg-base-100 p-8 rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <UserGroupIcon className="h-12 w-12 mb-4 text-primary mx-auto" />
+            <h2 className="text-xl font-semibold mb-4 text-center">Decentralized Access</h2>
+            <p className="text-base-content/70 text-center">
+              Control document access with wallet addresses and smart contracts
+            </p>
+          </div>
+
+          <div className="bg-base-100 p-8 rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-300">
+            {/* < className="h-12 w-12 mb-4 text-primary mx-auto" /> */}
+            <h2 className="text-xl font-semibold mb-4 text-center">Immutable History</h2>
+            <p className="text-base-content/70 text-center">
+              Every revision is permanently stored on the blockchain for complete transparency
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-20 text-center">
+          <Link href="/documents" className="btn bg-white text-black btn-lg animate-pulse-fast">
+            Start Collaborating
+          </Link>
+        </div>
+
+        <div className="mt-16 text-center">
+          <div className="inline-block relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary blur-lg opacity-20 animate-pulse"></div>
+            <div className="relative bg-base-100 rounded-xl p-6 shadow-xl">
+              <p className="text-lg">Connect your wallet to start creating and editing documents with your team</p>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
