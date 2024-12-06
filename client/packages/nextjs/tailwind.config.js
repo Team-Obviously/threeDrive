@@ -1,65 +1,74 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./app/**/*.{js,ts,jsx,tsx}", "./components/**/*.{js,ts,jsx,tsx}", "./utils/**/*.{js,ts,jsx,tsx}"],
-  plugins: [require("daisyui")],
-  darkTheme: "dark",
-  darkMode: ["selector", "[data-theme='dark']"],
-  daisyui: {
-    themes: [
-      {
-        light: {
-          primary: "#000000",
-          "primary-content": "#000000",
-          secondary: "#000000",
-          "secondary-content": "#000000",
-          accent: "#000000",
-          "accent-content": "#000000",
-          neutral: "#000000",
-          "neutral-content": "#FFFFFF",
-          "base-100": "#FFFFFF",
-          "base-200": "#F5F5F5",
-          "base-300": "#E5E5E5",
-          "base-content": "#000000",
-          info: "#000000",
-          success: "#000000",
-          warning: "#000000",
-          error: "#000000",
-          "--rounded-btn": "9999rem",
-          ".tooltip": { "--tooltip-tail": "6px" },
-          ".link": { textUnderlineOffset: "2px" },
-          ".link:hover": { opacity: "80%" },
-        },
-      },
-      {
-        dark: {
-          primary: "#FFFFFF",
-          "primary-content": "#FFFFFF",
-          secondary: "#FFFFFF",
-          "secondary-content": "#FFFFFF",
-          accent: "#FFFFFF",
-          "accent-content": "#FFFFFF",
-          neutral: "#FFFFFF",
-          "neutral-content": "#000000",
-          "base-100": "#000000",
-          "base-200": "#1A1A1A",
-          "base-300": "#262626",
-          "base-content": "#FFFFFF",
-          info: "#FFFFFF",
-          success: "#FFFFFF",
-          warning: "#FFFFFF",
-          error: "#FFFFFF",
-          "--rounded-btn": "9999rem",
-          ".tooltip": { "--tooltip-tail": "6px", "--tooltip-color": "oklch(var(--p))" },
-          ".link": { textUnderlineOffset: "2px" },
-          ".link:hover": { opacity: "80%" },
-        },
-      },
-    ],
-  },
+  darkMode: ["class"],
+  content: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
   theme: {
-    extend: {
-      boxShadow: { center: "0 0 12px -2px rgb(0 0 0 / 0.05)" },
-      animation: { "pulse-fast": "pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite" },
-    },
+  	extend: {
+  		colors: {
+  			border: '#E2E8F0',
+  			input: '#EDF2F7',
+  			ring: '#CBD5E0',
+  			background: '#FFFFFF',
+  			foreground: '#1A202C',
+  			primary: {
+  				DEFAULT: '#1A202C',
+  				foreground: '#FFFFFF'
+  			},
+  			secondary: {
+  				DEFAULT: '#F97316', // Orange
+  				foreground: '#FFFFFF'
+  			},
+  			destructive: {
+  				DEFAULT: '#E53E3E',
+  				foreground: '#FFFFFF'
+  			},
+  			muted: {
+  				DEFAULT: '#F7FAFC',
+  				foreground: '#4A5568'
+  			},
+  			accent: {
+  				DEFAULT: '#F97316', // Orange
+  				foreground: '#FFFFFF'
+  			},
+  			popover: {
+  				DEFAULT: '#FFFFFF',
+  				foreground: '#1A202C'
+  			},
+  			card: {
+  				DEFAULT: '#FFFFFF',
+  				foreground: '#1A202C'
+  			}
+  		},
+  		borderRadius: {
+  			lg: '0.5rem',
+  			md: '0.375rem',
+  			sm: '0.25rem'
+  		},
+  		animation: {
+  			gradient: 'gradient 8s linear infinite',
+  			meteor: 'meteor 5s linear infinite'
+  		},
+  		keyframes: {
+  			gradient: {
+  				to: {
+  					backgroundPosition: 'var(--bg-size) 0'
+  				}
+  			},
+  			meteor: {
+  				'0%': {
+  					transform: 'rotate(215deg) translateX(0)',
+  					opacity: '1'
+  				},
+  				'70%': {
+  					opacity: '1'
+  				},
+  				'100%': {
+  					transform: 'rotate(215deg) translateX(-500px)',
+  					opacity: '0'
+  				}
+  			}
+  		}
+  	}
   },
-};
+  plugins: [require("tailwindcss-animate")],
+}
