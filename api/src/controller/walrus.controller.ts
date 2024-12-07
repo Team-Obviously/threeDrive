@@ -6,6 +6,7 @@ import { IWalrusNode, ICollaborator } from "../Interfaces/file.interface";
 import { IBaseRequest } from "../Interfaces/utils/utils.interfaces";
 import User from "../models/user.model";
 import { Types, ObjectId } from "mongoose";
+import { readFile } from "fs/promises";
 
 interface TreeNode {
   metadata: {
@@ -18,6 +19,16 @@ interface TreeNode {
   name: string;
   isFile: boolean;
   children: TreeNode[];
+}
+
+async function pdfToBase64(filePath: string): Promise<string> {
+  try {
+    const fileBuffer = await readFile(filePath);
+    const base64String = fileBuffer.toString("base64");
+    return base64String;
+  } catch (error) {
+    throw new Error(`Error reading file: ${error.message}`);
+  }
 }
 
 export const createFolder = () =>
@@ -131,7 +142,7 @@ export const addObjectToWalrus = () =>
           uploadedFile.mimetype
         };base64,${fileBuffer.toString("base64")}`;
       } else {
-        // For other files, use buffer directly
+        // For PDFs and other files, use buffer directly
         fileContent = fileBuffer;
       }
 

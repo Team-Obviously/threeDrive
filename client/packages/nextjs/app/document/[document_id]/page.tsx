@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import CodeBlock from "~~/app/components/CodeBlock";
+import PdfViewer from "~~/app/components/PdfViewer";
 import { Button } from "~~/components/ui/button";
 import { getRequest, patchRequest, postRequest } from "~~/utils/generalService";
 
@@ -34,18 +35,18 @@ export default function DocumentPage({ params }: { params: { document_id: string
         console.log("res", res);
         setFileDetails(res.data.data);
 
-        if (res.data.data.isImage) {
-          const response = await fetch(res.data.data.downloadUrl);
-          const blob = await response.blob();
-          const text = await blob.text();
-          setImageContent(text);
-        }
-
-        // Fetch the actual file content
         const response = await fetch(res.data.data.downloadUrl);
         const blob = await response.blob();
         const text = await blob.text();
-        setFileContent(text);
+
+        if (res.data.data.isImage) {
+          setImageContent(text);
+        } else if (res.data.data.mimetype === "application/pdf") {
+          // For PDFs, we keep the base64 string
+          setFileContent(text);
+        } else {
+          setFileContent(text);
+        }
       } catch (err) {
         console.error("Failed to fetch file details:", err);
       } finally {
@@ -80,6 +81,10 @@ export default function DocumentPage({ params }: { params: { document_id: string
           )}
         </div>
       );
+    }
+
+    if (mimetype === "application/pdf") {
+      return <PdfViewer url={fileDetails.downloadUrl} fileName={fileDetails.name} />;
     }
 
     // For other file types
