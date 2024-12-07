@@ -116,7 +116,6 @@ export const addObjectToWalrus = () =>
       console.log("Generated filepath:", filepath);
 
       const fileBuffer = uploadedFile.buffer;
-
       const metadata = {
         filename: uploadedFile.originalname,
         mimetype: uploadedFile.mimetype,
@@ -124,18 +123,29 @@ export const addObjectToWalrus = () =>
         uploadedAt: new Date().toISOString(),
       };
 
-      // Convert buffer to base64
-      const base64Data = fileBuffer.toString("base64");
+      // Handle file content based on type
+      let fileContent;
+      if (uploadedFile.mimetype.startsWith("image/")) {
+        // For images, convert to base64
+        fileContent = `data:${
+          uploadedFile.mimetype
+        };base64,${fileBuffer.toString("base64")}`;
+      } else {
+        // For other files, use buffer directly
+        fileContent = fileBuffer;
+      }
 
-      // Upload to Walrus with proper content type
+      // Upload to Walrus
       const uploadResult = await axios.put(
         `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
-        base64Data,
+        fileContent,
         {
           headers: {
             "Content-Type": metadata.mimetype,
             "X-File-Metadata": JSON.stringify(metadata),
-            "Content-Transfer-Encoding": "base64",
+            ...(uploadedFile.mimetype.startsWith("image/") && {
+              "Content-Transfer-Encoding": "base64",
+            }),
           },
         }
       );
