@@ -24,7 +24,7 @@ export const createFolder = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
     const { name, parentObjectId } = req.body;
     console.log("parentObjectId", parentObjectId);
-    if (!parentObjectId) {
+    if (!parentObjectId || parentObjectId === "null") {
       const rootFolder = await File.findOne({
         userId: req.user._id.toString(),
         isFile: false,
