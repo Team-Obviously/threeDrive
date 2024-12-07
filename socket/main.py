@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from typing import Dict, Set
+from typing import Dict, Set, List
 import json
 
 app = FastAPI()
@@ -8,34 +8,64 @@ app = FastAPI()
 # Mount the static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Store active connections and document state
+class Document:
+    def __init__(self):
+        self.content = ""
+        self.users: Set[WebSocket] = set()
+        self.history: List[dict] = []
+
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[str, Set[WebSocket]] = {}
-        self.document_contents: Dict[str, str] = {}
+        self.documents: Dict[str, Document] = {}
+
+    def get_or_create_document(self, document_id: str) -> Document:
+        if document_id not in self.documents:
+            self.documents[document_id] = Document()
+        return self.documents[document_id]
 
     async def connect(self, websocket: WebSocket, document_id: str):
         await websocket.accept()
-        if document_id not in self.active_connections:
-            self.active_connections[document_id] = set()
-            self.document_contents[document_id] = ""
-        self.active_connections[document_id].add(websocket)
-        # Send current document state to new connection
-        await websocket.send_text(json.dumps({
-            "type": "content",
-            "content": self.document_contents[document_id]
-        }))
+        document = self.get_or_create_document(document_id)
+        document.users.add(websocket)
+        
+        # Send initial state
+        await websocket.send_json({
+            "type": "init",
+            "content": document.content,
+            "userCount": len(document.users)
+        })
+        
+        # Notify others about new user
+        await self.broadcast(document_id, {
+            "type": "user_joined",
+            "userCount": len(document.users)
+        }, exclude=websocket)
 
     def disconnect(self, websocket: WebSocket, document_id: str):
-        self.active_connections[document_id].remove(websocket)
-        if not self.active_connections[document_id]:
-            del self.active_connections[document_id]
-            del self.document_contents[document_id]
+        if document_id in self.documents:
+            document = self.documents[document_id]
+            document.users.remove(websocket)
+            
+            if not document.users:
+                del self.documents[document_id]
+                return 0
+            return len(document.users)
+        return 0
 
-    async def broadcast(self, message: str, document_id: str):
-        if document_id in self.active_connections:
-            for connection in self.active_connections[document_id]:
-                await connection.send_text(message)
+    async def broadcast(self, document_id: str, message: dict, exclude: WebSocket = None):
+        if document_id in self.documents:
+            document = self.documents[document_id]
+            for connection in document.users:
+                if connection != exclude:
+                    await connection.send_json(message)
+
+    def update_content(self, document_id: str, content: str):
+        if document_id in self.documents:
+            self.documents[document_id].content = content
+            self.documents[document_id].history.append({
+                "type": "content",
+                "content": content
+            })
 
 manager = ConnectionManager()
 
@@ -46,25 +76,30 @@ async def get():
 @app.websocket("/ws/{document_id}")
 async def websocket_endpoint(websocket: WebSocket, document_id: str):
     await manager.connect(websocket, document_id)
+    
     try:
         while True:
-            data = await websocket.receive_text()
-            message = json.loads(data)
+            data = await websocket.receive_json()
             
-            # Update document content
-            if message["type"] == "content":
-                manager.document_contents[document_id] = message["content"]
-                # Broadcast to all clients except sender
-                for connection in manager.active_connections[document_id]:
-                    if connection != websocket:
-                        await connection.send_text(data)
+            if data["type"] == "content":
+                manager.update_content(document_id, data["content"])
+                await manager.broadcast(
+                    document_id,
+                    {
+                        "type": "content",
+                        "content": data["content"],
+                        "userCount": len(manager.documents[document_id].users)
+                    },
+                    exclude=websocket
+                )
+                
     except WebSocketDisconnect:
-        manager.disconnect(websocket, document_id)
-        if document_id in manager.active_connections:
+        user_count = manager.disconnect(websocket, document_id)
+        if user_count > 0:
             await manager.broadcast(
-                json.dumps({
-                    "type": "system",
-                    "message": "A user has left the document"
-                }),
-                document_id
+                document_id,
+                {
+                    "type": "user_left",
+                    "userCount": user_count
+                }
             )
