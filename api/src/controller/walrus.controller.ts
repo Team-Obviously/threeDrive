@@ -7,6 +7,7 @@ import { IBaseRequest } from "../Interfaces/utils/utils.interfaces";
 import User from "../models/user.model";
 import { Types, ObjectId } from "mongoose";
 import { readFile } from "fs/promises";
+import { sendEmail } from "../utils/helper";
 
 interface TreeNode {
   metadata: {
@@ -490,15 +491,30 @@ export const addCollaborator = () =>
     const { id } = req.params;
     const { emailId } = req.body;
     const requestingUserId = req.user?._id.toString();
-
-    const userToAdd = await User.findOne({ email: emailId });
-    if (!userToAdd) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
     const item = await File.findOne({ _id: id, isDeleted: { $ne: true } });
     if (!item) {
       return res.status(404).json({ message: "File or folder not found" });
+    }
+
+    const userToAdd = await User.findOne({ email: emailId });
+    const documentLink = `${process.env.REACT_APP_BASE_URL}/document/${id}`;
+
+    await sendEmail({
+      to: emailId,
+      subject: `You've been added as a collaborator to ${item.name}`,
+      text: `
+        You have been added as a collaborator to ${
+          item.isFile ? "file" : "folder"
+        } "${item.name}" by ${requestingUserId}.
+        
+        You can access it here: ${documentLink}
+        
+        Best regards,
+        Your ThreeDrive Team
+      `,
+    });
+    if (!userToAdd) {
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Check if user is owner
