@@ -862,15 +862,31 @@ export const getFile = () =>
       return res.status(404).json({ message: "File not found" });
     }
 
-    // Generate download URL
     const downloadUrl = `${process.env.WALRUS_AGGREGATOR_URL}/v1/${file.blobId}`;
 
+    // For images, return direct URL
+    if (file.metadata.mimetype.startsWith("image/")) {
+      return res.status(200).json({
+        status: "success",
+        data: {
+          metadata: file.metadata,
+          name: file.name,
+          mimetype: file.metadata.mimetype,
+          size: file.metadata.size,
+          downloadUrl,
+          isImage: true,
+        },
+      });
+    }
+
+    // For other files, return as before
     const fileData = {
       metadata: file.metadata,
       name: file.name,
       mimetype: file.metadata.mimetype,
       size: file.metadata.size,
       downloadUrl,
+      isImage: false,
     };
 
     return res.status(200).json({

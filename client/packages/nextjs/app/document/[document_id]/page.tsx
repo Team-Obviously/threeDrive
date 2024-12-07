@@ -17,6 +17,7 @@ interface FileDetails {
   mimetype: string;
   size: number;
   downloadUrl: string;
+  isImage: boolean;
 }
 
 export default function DocumentPage({ params }: { params: { document_id: string } }) {
@@ -24,12 +25,21 @@ export default function DocumentPage({ params }: { params: { document_id: string
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [imageContent, setImageContent] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchFileDetails = async () => {
       try {
         const res = await getRequest(`/walrus/file/${params.document_id}/view`);
         console.log("res", res);
         setFileDetails(res.data.data);
+
+        if (res.data.data.isImage) {
+          const response = await fetch(res.data.data.downloadUrl);
+          const blob = await response.blob();
+          const text = await blob.text();
+          setImageContent(text);
+        }
 
         // Fetch the actual file content
         const response = await fetch(res.data.data.downloadUrl);
@@ -62,24 +72,22 @@ export default function DocumentPage({ params }: { params: { document_id: string
       );
     }
 
-    if (mimetype.startsWith("image/")) {
+    if (fileDetails.isImage) {
       return (
         <div className="flex justify-center p-8">
-          <img
-            src={URL.createObjectURL(new Blob([fileContent || ""], { type: mimetype }))}
-            alt={fileDetails.name}
-            className="max-w-full h-auto"
-          />
+          {imageContent && (
+            <img src={imageContent} alt={fileDetails.name} className="max-w-full h-auto rounded-lg shadow-lg" />
+          )}
         </div>
       );
     }
 
-    // For other file types, create a download link from the blob
+    // For other file types
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <p className="mb-4">This file type ({mimetype}) cannot be previewed.</p>
         <a
-          href={URL.createObjectURL(new Blob([fileContent || ""], { type: mimetype }))}
+          href={fileDetails.downloadUrl}
           download={fileDetails.name}
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
@@ -110,7 +118,6 @@ function TextEditor({
   const [content, setContent] = useState(initialContent);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Update content when initialContent changes
   useEffect(() => {
     setContent(initialContent);
   }, [initialContent]);
@@ -161,7 +168,6 @@ function TextEditor({
     const newContent = e.target.value;
     setContent(newContent);
 
-    // Send content through websocket
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "content", content: newContent }));
     }
@@ -191,14 +197,11 @@ function TextEditor({
     try {
       setIsSaving(true);
 
-      // Create a new Blob from the content
       const file = new Blob([content], { type: "text/plain" });
 
-      // Create FormData and append the file
       const formData = new FormData();
       formData.append("file", file, fileName);
 
-      // Send the file to backend
       await patchRequest(`/walrus/file/${documentId}/content`, formData);
     } catch (error) {
       console.error("Failed to save:", error);
