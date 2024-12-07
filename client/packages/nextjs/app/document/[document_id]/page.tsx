@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import CodeBlock from "~~/app/components/CodeBlock";
-import { getRequest } from "~~/utils/generalService";
+import { Button } from "~~/components/ui/button";
+import { getRequest, patchRequest, postRequest } from "~~/utils/generalService";
 
 interface FileDetails {
   metadata: {
@@ -106,6 +108,7 @@ function TextEditor({
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [content, setContent] = useState(initialContent);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Update content when initialContent changes
   useEffect(() => {
@@ -184,12 +187,44 @@ function TextEditor({
     }
   };
 
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+
+      // Create a new Blob from the content
+      const file = new Blob([content], { type: "text/plain" });
+
+      // Create FormData and append the file
+      const formData = new FormData();
+      formData.append("file", file, fileName);
+
+      // Send the file to backend
+      await patchRequest(`/walrus/file/${documentId}/content`, formData);
+    } catch (error) {
+      console.error("Failed to save:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="container mx-auto max-w-4xl bg-[#1e1e1e] shadow-md rounded-lg p-8 my-10">
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Code Editor</h1>
-        <div className={`px-4 py-2 rounded ${connectionColor} bg-gray-800`}>
-          <span className="font-semibold">{connectionStatus}</span>
+        <div className="flex items-center gap-4">
+          <Button onClick={handleSave} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white">
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save"
+            )}
+          </Button>
+          <div className={`px-4 py-2 rounded ${connectionColor} bg-gray-800`}>
+            <span className="font-semibold">{connectionStatus}</span>
+          </div>
         </div>
       </header>
 

@@ -41,6 +41,6 @@ router.patch("/move/:id", moveNode());
 
 router.post("/upload", upload.any(), uploadFile());
 router.get("/file/:walrusId/view", getFile());
-router.put("/file/:fileId/content", upload.any(), updateFileContent());
+router.patch("/file/:fileId/content", upload.any(), updateFileContent());
 
 export default router;
