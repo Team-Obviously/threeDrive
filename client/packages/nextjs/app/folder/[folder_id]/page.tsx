@@ -97,13 +97,9 @@ export default function FolderPage() {
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     try {
-      await postRequest("/walrus/folder", {
-        name: newFolderName,
-        parentId: params.folder_id,
-      });
       const res = await postRequest(`/walrus/folder`, {
         name: newFolderName,
-        parentId: params.folder_id,
+        parentObjectId: params.folder_id,
       });
       setFolder(res.data.data.folder);
       setNewFolderName("");
