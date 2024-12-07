@@ -15,6 +15,14 @@ import {
 } from "~~/components/ui/dropdown-menu";
 import { Input } from "~~/components/ui/input";
 import { getRequest, postRequest } from "~~/utils/generalService";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~~/components/ui/table";
 
 interface FileMetadata {
   filename: string;
@@ -237,48 +245,68 @@ export default function FolderPage() {
           )}
         </div>
       </div>
-      `{" "}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {folder?.children.map(item => (
-          <div key={item._id} className="relative">
-            <Link
-              href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
-              className="p-4 border rounded-lg hover:bg-gray-100 transition-colors duration-200 flex flex-col items-center"
-            >
-              {item.isFile ? (
-                <DocumentIcon className="h-12 w-12 text-blue-500" />
-              ) : (
-                <FolderIcon className="h-12 w-12 text-yellow-500" />
-              )}
-              <span className="mt-2 text-sm font-medium text-center">{item.name}</span>
-              <span className="mt-1 text-xs text-gray-500">
-                {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
-              </span>
-              {/* <span className="mt-1 text-xs text-gray-500">{formatDate(item.metadata.uploadedAt)}</span> */}
-            </Link>
 
-            <div className="absolute top-2 right-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSelectedItem(item);
-                      setShowShareDialog(true);
-                    }}
+      <div className="mt-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Size</TableHead>
+              <TableHead>Last Modified</TableHead>
+              <TableHead className="w-[70px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {folder?.children.map(item => (
+              <TableRow key={item._id}>
+                <TableCell>
+                  <Link
+                    href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
+                    className="flex items-center space-x-2 hover:text-blue-500"
                   >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Share
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        ))}
+                    {item.isFile ? (
+                      <DocumentIcon className="h-5 w-5 text-blue-500" />
+                    ) : (
+                      <FolderIcon className="h-5 w-5 text-yellow-500" />
+                    )}
+                    <span>{item.name}</span>
+                  </Link>
+                </TableCell>
+                <TableCell>{item.isFile ? "File" : "Folder"}</TableCell>
+                <TableCell>
+                  {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
+                </TableCell>
+                <TableCell>
+                  {item.isFile ? new Date(item.metadata.uploadedAt).toLocaleDateString() : "-"}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger>
+                      <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setShowShareDialog(true);
+                        }}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Share
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {folder?.children.length === 0 && (
+          <div className="text-center text-gray-500 mt-8">This folder is empty</div>
+        )}
       </div>
-      {folder?.children.length === 0 && <div className="text-center text-gray-500 mt-8">This folder is empty</div>}
+
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
         <DialogContent>
           <DialogHeader>
