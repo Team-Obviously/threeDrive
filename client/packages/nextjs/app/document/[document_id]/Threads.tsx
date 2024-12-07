@@ -15,4 +15,4 @@ export function Threads() {
       <FloatingComposer className="floating-composer" />
     </>
   );
-}
+} 
