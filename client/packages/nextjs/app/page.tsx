@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Meteors } from "@/components/ui/meteors";
 import type { NextPage } from "next";
 import { OktoContextType, useOkto } from "okto-sdk-react";
-import { DocumentTextIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { DocumentTextIcon, LockClosedIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import AnimatedGradientText from "~~/components/ui/animated-gradient-text";
+import Globe from "~~/components/ui/globe";
+
+// Add via shadcn CLI
 
 const Home: NextPage = () => {
   const { getUserDetails } = useOkto() as OktoContextType;
@@ -14,7 +19,6 @@ const Home: NextPage = () => {
     const fetchUserData = async () => {
       try {
         const data = await getUserDetails();
-        console.log("USERDATA", data);
         setUserData(data);
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -23,56 +27,70 @@ const Home: NextPage = () => {
 
     fetchUserData();
   }, [getUserDetails]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-base-100 to-base-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center animate-fade-in">
-          <h1 className="text-6xl font-bold mb-6">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">ThreeDrive</span>
-          </h1>
-          <p className="text-2xl mb-12 text-base-content/80">
-            Collaborative document editing, powered by blockchain technology
-          </p>
+      {/* Hero Section */}
+      <div className="relative">
+        <div className="absolute inset-0 overflow-hidden">
+          <Globe className="opacity-70" />
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 mt-16">
-          <div className="bg-base-100 p-8 rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-300">
-            <DocumentTextIcon className="h-12 w-12 mb-4 text-primary mx-auto" />
-            <h2 className="text-xl font-semibold mb-4 text-center">Real-time Collaboration</h2>
-            <p className="text-base-content/70 text-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32">
+          <div className="text-center animate-fade-in space-y-8">
+            <div className="flex items-center justify-center gap-4">
+              <AnimatedGradientText className="text-7xl font-bold">
+                ThreeDrive{" "}
+                <img
+                  src="https://cdn-icons-png.flaticon.com/128/5968/5968523.png"
+                  alt="ThreeDrive logo"
+                  className="h-16 ml-4 mt-2 w-16"
+                />
+              </AnimatedGradientText>
+            </div>
+            <p className="text-2xl text-base-content/80 max-w-2xl mx-auto">
+              Collaborative document editing, powered by blockchain technology
+            </p>
+
+            <div className="relative inline-block">
+              <Link
+                href="/documents"
+                className="relative inline-flex items-center px-8 py-4 text-lg font-medium text-white bg-primary rounded-xl overflow-hidden transition-transform hover:scale-105"
+              >
+                Start Collaborating
+                <Meteors number={20} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Features Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="group relative overflow-hidden rounded-2xl bg-base-100 p-8 hover:shadow-xl transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <DocumentTextIcon className="h-12 w-12 mb-4 text-primary" />
+            <h2 className="text-xl font-semibold mb-4">Real-time Collaboration</h2>
+            <p className="text-base-content/70">
               Edit documents simultaneously with your team, with changes synced instantly on-chain
             </p>
           </div>
 
-          <div className="bg-base-100 p-8 rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-300">
-            <UserGroupIcon className="h-12 w-12 mb-4 text-primary mx-auto" />
-            <h2 className="text-xl font-semibold mb-4 text-center">Decentralized Access</h2>
-            <p className="text-base-content/70 text-center">
-              Control document access with wallet addresses and smart contracts
-            </p>
+          <div className="group relative overflow-hidden rounded-2xl bg-base-100 p-8 hover:shadow-xl transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <UserGroupIcon className="h-12 w-12 mb-4 text-primary" />
+            <h2 className="text-xl font-semibold mb-4">Decentralized Access</h2>
+            <p className="text-base-content/70">Control document access with wallet addresses and smart contracts</p>
           </div>
 
-          <div className="bg-base-100 p-8 rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-300">
-            {/* < className="h-12 w-12 mb-4 text-primary mx-auto" /> */}
-            <h2 className="text-xl font-semibold mb-4 text-center">Immutable History</h2>
-            <p className="text-base-content/70 text-center">
+          <div className="group relative overflow-hidden rounded-2xl bg-base-100 p-8 hover:shadow-xl transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <LockClosedIcon className="h-12 w-12 mb-4 text-primary" />
+            <h2 className="text-xl font-semibold mb-4">Immutable History</h2>
+            <p className="text-base-content/70">
               Every revision is permanently stored on the blockchain for complete transparency
             </p>
-          </div>
-        </div>
-
-        <div className="mt-20 text-center">
-          <Link href="/documents" className="btn bg-white text-black btn-lg animate-pulse-fast">
-            Start Collaborating
-          </Link>
-        </div>
-
-        <div className="mt-16 text-center">
-          <div className="inline-block relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary blur-lg opacity-20 animate-pulse"></div>
-            <div className="relative bg-base-100 rounded-xl p-6 shadow-xl">
-              <p className="text-lg">Connect your wallet to start creating and editing documents with your team</p>
-            </div>
           </div>
         </div>
       </div>

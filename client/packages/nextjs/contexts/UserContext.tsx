@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, createContext, useContext, useState } from "react";
+import { OktoContextType, useOkto } from "okto-sdk-react";
 
 interface UserContextType {
   userEmail: string;
@@ -15,11 +16,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [userEmail, setuserEmail] = useState("");
   const [authToken, setAuthToken] = useState<string | null>(null);
-
-  const handleLogout = () => {
-    setuserEmail("");
-    setAuthToken(null);
-  };
+  const { logOut } = useOkto() as OktoContextType;
 
   return (
     <UserContext.Provider
@@ -28,7 +25,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         authToken,
         setuserEmail,
         setAuthToken,
-        handleLogout,
+        handleLogout: logOut,
       }}
     >
       {children}
