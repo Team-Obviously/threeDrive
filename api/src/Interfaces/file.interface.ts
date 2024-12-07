@@ -1,4 +1,4 @@
-import { ObjectId } from "mongoose";
+import { Schema } from "mongoose";
 
 export interface IFileMetadata {
   filename: string;
@@ -9,18 +9,17 @@ export interface IFileMetadata {
 
 export interface ICollaborator {
   userId: string;
-  accessLevel: "read" | "write" | "admin";
   addedAt: Date;
 }
 
 export interface IWalrusNode {
-  _id?: ObjectId;
+  _id?: Schema.Types.ObjectId;
   userId: string;
   path: string;
   name: string;
   isFile: boolean;
-  parent: ObjectId | null; // null for root
-  children: ObjectId[];
+  parent: Schema.Types.ObjectId | null;
+  children: Schema.Types.ObjectId[];
   collaborators?: ICollaborator[];
   isDeleted?: boolean;
   createdAt?: Date;

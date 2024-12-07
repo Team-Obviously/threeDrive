@@ -418,31 +418,30 @@ export const getAllUserFiles = () =>
 export const addCollaborator = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { userId, accessLevel } = req.body;
+    const { emailId } = req.body;
     const requestingUserId = req.user?._id.toString();
+
+    const userToAdd = await User.findOne({ email: emailId });
+    if (!userToAdd) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const item = await File.findOne({ _id: id, isDeleted: { $ne: true } });
     if (!item) {
       return res.status(404).json({ message: "File or folder not found" });
     }
 
+    // Check if user is owner
     if (item.userId.toString() !== requestingUserId) {
-      const userAccess = item.collaborators?.find(
-        (c: ICollaborator) => c.userId.toString() === requestingUserId
-      );
-      if (!userAccess || userAccess.accessLevel !== "admin") {
-        return res.status(403).json({ message: "Insufficient permissions" });
-      }
+      return res
+        .status(403)
+        .json({ message: "Only owner can add collaborators" });
     }
 
-    const userToAdd = await User.findById(userId);
-    if (!userToAdd) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
+    // Check if user is already a collaborator
     if (
       item.collaborators?.some(
-        (c: ICollaborator) => c.userId.toString() === userId
+        (c: ICollaborator) => c.userId.toString() === userToAdd._id.toString()
       )
     ) {
       return res
@@ -451,8 +450,7 @@ export const addCollaborator = () =>
     }
 
     const collaborator: ICollaborator = {
-      userId,
-      accessLevel,
+      userId: userToAdd._id.toString(),
       addedAt: new Date(),
     };
 
@@ -482,7 +480,7 @@ export const removeCollaborator = () =>
       const userAccess = item.collaborators?.find(
         (c: ICollaborator) => c.userId.toString() === requestingUserId
       );
-      if (!userAccess || userAccess.accessLevel !== "admin") {
+      if (!userAccess) {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
     }

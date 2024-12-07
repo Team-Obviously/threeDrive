@@ -3,10 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, MoreVertical, UserPlus, X } from "lucide-react";
 import { DocumentIcon, DocumentPlusIcon, FolderIcon, FolderPlusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "~~/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~~/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~~/components/ui/dropdown-menu";
 import { Input } from "~~/components/ui/input";
 import { getRequest, postRequest } from "~~/utils/generalService";
 
@@ -17,6 +23,12 @@ interface FileMetadata {
   uploadedAt: string;
 }
 
+interface Collaborator {
+  _id: string;
+  userId: string;
+  addedAt: string;
+}
+
 interface FolderItem {
   _id: string;
   name: string;
@@ -25,6 +37,7 @@ interface FolderItem {
   parent: string | null;
   children: FolderItem[];
   metadata: FileMetadata;
+  collaborators: Collaborator[];
 }
 
 export default function FolderPage() {
@@ -37,6 +50,9 @@ export default function FolderPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null);
+  const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
 
   useEffect(() => {
     const fetchFolder = async () => {
@@ -68,7 +84,6 @@ export default function FolderPage() {
 
       await postRequest("/walrus/", formData);
 
-      // Refresh folder contents after upload
       const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
       setFolder(refreshRes.data.data.folder);
     } catch (err) {
@@ -96,6 +111,47 @@ export default function FolderPage() {
       setShowDropdown(false);
     } catch (err) {
       setError("Failed to create folder");
+    }
+  };
+
+  const handleShare = async (email: string) => {
+    console.log(email);
+    console.log(selectedItem?._id);
+    try {
+      const res = await postRequest(`/walrus/collaborator/${selectedItem?._id}`, {
+        emailId: email,
+      });
+      console.log(res);
+
+      if (res.data.success) {
+        const collaborator = res.data.data.collaborator;
+        setFolder(prevFolder => {
+          if (!prevFolder) return null;
+          return {
+            ...prevFolder,
+            collaborators: [...(prevFolder?.collaborators || []), collaborator],
+          };
+        });
+        // const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
+        // setFolder(refreshRes.data.data.folder);
+        setNewCollaboratorEmail("");
+      }
+    } catch (err) {
+      setError("Failed to share item");
+    }
+  };
+
+  const handleRevokeAccess = async (userId: string) => {
+    try {
+      await postRequest(`/walrus/revoke-access`, {
+        itemId: selectedItem?._id,
+        userId,
+      });
+
+      const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
+      setFolder(refreshRes.data.data.folder);
+    } catch (err) {
+      setError("Failed to revoke access");
     }
   };
 
@@ -184,22 +240,42 @@ export default function FolderPage() {
       `{" "}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {folder?.children.map(item => (
-          <Link
-            href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
-            key={item._id}
-            className="p-4 border rounded-lg hover:bg-gray-100 transition-colors duration-200 flex flex-col items-center"
-          >
-            {item.isFile ? (
-              <DocumentIcon className="h-12 w-12 text-blue-500" />
-            ) : (
-              <FolderIcon className="h-12 w-12 text-yellow-500" />
-            )}
-            <span className="mt-2 text-sm font-medium text-center">{item.name}</span>
-            <span className="mt-1 text-xs text-gray-500">
-              {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
-            </span>
-            {/* <span className="mt-1 text-xs text-gray-500">{formatDate(item.metadata.uploadedAt)}</span> */}
-          </Link>
+          <div key={item._id} className="relative">
+            <Link
+              href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
+              className="p-4 border rounded-lg hover:bg-gray-100 transition-colors duration-200 flex flex-col items-center"
+            >
+              {item.isFile ? (
+                <DocumentIcon className="h-12 w-12 text-blue-500" />
+              ) : (
+                <FolderIcon className="h-12 w-12 text-yellow-500" />
+              )}
+              <span className="mt-2 text-sm font-medium text-center">{item.name}</span>
+              <span className="mt-1 text-xs text-gray-500">
+                {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
+              </span>
+              {/* <span className="mt-1 text-xs text-gray-500">{formatDate(item.metadata.uploadedAt)}</span> */}
+            </Link>
+
+            <div className="absolute top-2 right-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSelectedItem(item);
+                      setShowShareDialog(true);
+                    }}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Share
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         ))}
       </div>
       {folder?.children.length === 0 && <div className="text-center text-gray-500 mt-8">This folder is empty</div>}
@@ -222,6 +298,45 @@ export default function FolderPage() {
             </Button>
             <Button onClick={handleCreateFolder}>Create</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share {selectedItem?.name}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Enter email address"
+                value={newCollaboratorEmail}
+                onChange={e => setNewCollaboratorEmail(e.target.value)}
+                className="flex-1"
+              />
+              <Button onClick={() => handleShare(newCollaboratorEmail)} disabled={!newCollaboratorEmail}>
+                Share
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">People with access</h3>
+              {selectedItem?.collaborators?.map(collaborator => (
+                <div
+                  key={collaborator._id}
+                  className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-md"
+                >
+                  <div>
+                    <p className="text-sm font-medium">User {collaborator.userId}</p>
+                    <p className="text-xs text-gray-500">Added {new Date(collaborator.addedAt).toLocaleDateString()}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => handleRevokeAccess(collaborator.userId)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
