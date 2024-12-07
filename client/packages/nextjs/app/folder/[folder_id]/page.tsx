@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
 import { ArrowLeft, Copy, Loader2, MoreVertical, RefreshCw, UserPlus, X } from "lucide-react";
 import { DocumentIcon, DocumentPlusIcon, FolderIcon, FolderPlusIcon, PlusIcon } from "@heroicons/react/24/outline";
-import { Breadcrumb, BreadcrumbEllipsis, BreadcrumbItem, BreadcrumbLink } from "~~/components/ui/breadcrumb";
 import { Button } from "~~/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~~/components/ui/dialog";
 import {
@@ -16,6 +16,7 @@ import {
 } from "~~/components/ui/dropdown-menu";
 import { Input } from "~~/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~~/components/ui/table";
+import { useToast } from "~~/hooks/use-toast";
 import { getRequest, postRequest } from "~~/utils/generalService";
 
 interface FileMetadata {
@@ -47,9 +48,9 @@ export default function FolderPage() {
   const params = useParams();
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast();
   const [folder, setFolder] = useState<FolderItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -58,6 +59,9 @@ export default function FolderPage() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null);
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
+  const [showConfetti, setShowConfetti] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState<File | null>(null);
 
   const truncateBlobId = (blobId: string) => {
     if (!blobId) return "";
@@ -68,9 +72,16 @@ export default function FolderPage() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // Could add a toast notification here
+      toast({
+        title: "Copied to clipboard",
+        description: "The blob ID has been copied to your clipboard",
+      });
     } catch (err) {
-      console.error("Failed to copy text: ", err);
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy text to clipboard",
+        variant: "destructive",
+      });
     }
   };
 
@@ -79,11 +90,13 @@ export default function FolderPage() {
       setLoading(true);
       const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
       const res = await getRequest(`/walrus/folder?id=${folderId}`);
-      console.log("folder", res);
       setFolder(res.data.data.folder);
-      setError(null);
     } catch (err) {
-      setError("Failed to load folder contents");
+      toast({
+        title: "Error loading folder",
+        description: "Could not load folder contents. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -94,25 +107,42 @@ export default function FolderPage() {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || uploading) return;
+
+    const file = files[0];
+    setUploadingFile(file);
 
     try {
       setUploading(true);
       setUploadProgress(0);
       const formData = new FormData();
-      formData.append("file", files[0]);
+      formData.append("file", file);
       const folderId = pathname.endsWith("root") ? "null" : (params.folder_id as string);
       formData.append("parentFolderId", folderId);
 
-      await postRequest("/walrus/", formData);
+      const res = await postRequest("/walrus/", formData);
 
-      const refreshRes = await getRequest(`/walrus/folder?id=${folderId}`);
-      setFolder(refreshRes.data.data.folder);
+      if (res.data.success) {
+        await fetchFolder();
+        toast({
+          title: "Upload successful",
+          description: `${file.name} has been uploaded successfully`,
+        });
+      }
     } catch (err) {
-      setError("Failed to upload file");
+      toast({
+        title: "Upload failed",
+        description: "Could not upload file. Please try again.",
+        variant: "destructive",
+      });
     } finally {
+      handleConfetti();
       setUploading(false);
       setUploadProgress(0);
+      setUploadingFile(null);
+      setShowDropdown(false);
+      // Reset the input
+      event.target.value = "";
     }
   };
 
@@ -128,19 +158,24 @@ export default function FolderPage() {
       setNewFolderName("");
       setShowNewFolderDialog(false);
       setShowDropdown(false);
+      toast({
+        title: "Folder created",
+        description: `Folder "${newFolderName}" has been created`,
+      });
     } catch (err) {
-      setError("Failed to create folder");
+      toast({
+        title: "Error creating folder",
+        description: "Could not create folder. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleShare = async (email: string) => {
-    console.log(email);
-    console.log(selectedItem?._id);
     try {
       const res = await postRequest(`/walrus/collaborator/${selectedItem?._id}`, {
         emailId: email,
       });
-      console.log(res);
 
       if (res.data.success) {
         const collaborator = res.data.data.collaborator;
@@ -152,9 +187,17 @@ export default function FolderPage() {
           };
         });
         setNewCollaboratorEmail("");
+        toast({
+          title: "Share successful",
+          description: `Successfully shared with ${email}`,
+        });
       }
     } catch (err) {
-      setError("Failed to share item");
+      toast({
+        title: "Share failed",
+        description: "Could not share item. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -168,8 +211,16 @@ export default function FolderPage() {
       const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
       const refreshRes = await getRequest(`/walrus/folder?id=${folderId}`);
       setFolder(refreshRes.data.data.folder);
+      toast({
+        title: "Access revoked",
+        description: "Successfully revoked access",
+      });
     } catch (err) {
-      setError("Failed to revoke access");
+      toast({
+        title: "Error revoking access",
+        description: "Could not revoke access. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -181,12 +232,65 @@ export default function FolderPage() {
     }
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0 || uploading) return;
+
+    const file = files[0];
+    setUploadingFile(file);
+
+    try {
+      setUploading(true);
+      setUploadProgress(0);
+      const formData = new FormData();
+      formData.append("file", file);
+      const folderId = pathname.endsWith("root") ? "null" : (params.folder_id as string);
+      formData.append("parentFolderId", folderId);
+
+      await postRequest("/walrus/", formData);
+
+      await fetchFolder();
+      toast({
+        title: "Upload successful",
+        description: `${file.name} has been uploaded successfully`,
+      });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: "Could not upload file. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      handleConfetti();
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadingFile(null);
+    }
+  };
+
   if (loading) {
     return <div className="mt-20 flex justify-center">Loading...</div>;
-  }
-
-  if (error) {
-    return <div className="mt-20 text-center text-red-500">{error}</div>;
   }
 
   const formatFileSize = (bytes: number) => {
@@ -197,8 +301,62 @@ export default function FolderPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const handleConfetti = () => {
+    const end = Date.now() + 3 * 1000; // 3 seconds
+    const colors = ["#a786ff", "#fd8bbc", "#eca184", "#f8deb1"];
+
+    const frame = () => {
+      if (Date.now() > end) return;
+
+      confetti({
+        particleCount: 2,
+        angle: 60,
+        spread: 55,
+        startVelocity: 60,
+        origin: { x: 0, y: 0.5 },
+        colors: colors,
+      });
+      confetti({
+        particleCount: 2,
+        angle: 120,
+        spread: 55,
+        startVelocity: 60,
+        origin: { x: 1, y: 0.5 },
+        colors: colors,
+      });
+
+      requestAnimationFrame(frame);
+    };
+
+    frame();
+  };
+
   return (
-    <div className="mt-10 px-8">
+    <div
+      className="mt-10 px-8 relative min-h-screen"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {(isDragging || uploading) && (
+        <div className="absolute inset-0 bg-blue-500/10 border-2 border-blue-500 border-dashed rounded-lg z-50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded-lg shadow-lg text-center">
+            {uploading ? (
+              <>
+                <div className="flex items-center justify-center mb-2">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <p className="text-lg font-medium">Uploading {uploadingFile?.name}...</p>
+                </div>
+                <p className="text-sm text-gray-500">Please wait</p>
+              </>
+            ) : (
+              <p className="text-lg font-medium">{isDragging ? "Drop your file here to upload" : "Processing..."}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={handleBack}>
@@ -207,22 +365,62 @@ export default function FolderPage() {
           <h1 className="text-xl font-semibold">{folder?.path}</h1>
         </div>
 
+        <div className="relative w-96">
+          <Input
+            type="text"
+            placeholder="Search files..."
+            className="pl-3 pr-10"
+            onChange={e => {
+              // TODO: Implement search functionality
+              console.log(e.target.value);
+            }}
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            <svg
+              className="h-5 w-5 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        </div>
+
         <div className="relative flex flex-row gap-4">
-          <Button className="" variant="secondary" size="icon" onClick={fetchFolder}>
+          <Button className="" variant="default" size="icon" onClick={fetchFolder}>
             <RefreshCw className="h-6 w-6" />
           </Button>
-          <button
+          <Button
+            className="flex items-center"
+            variant="default"
+            size="icon"
             onClick={() => setShowDropdown(!showDropdown)}
-            className="inline-flex h-10 items-center px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
           >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            New
-          </button>
+            <PlusIcon className="h-5 w-5 " />
+          </Button>
 
           {showDropdown && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+            <div className="absolute right-0 mt-12 w-48 bg-white rounded-md shadow-lg z-10 border">
               <div className="py-1">
-                <div className="px-4 py-2 hover:bg-gray-100">
+                <div className="flex justify-end px-2 py-1">
+                  <button onClick={() => setShowDropdown(false)} className="p-1 hover:bg-gray-100 rounded">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div
+                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => {
+                    const fileInput = document.getElementById("file-upload");
+                    if (fileInput) {
+                      fileInput.click();
+                    }
+                  }}
+                >
                   <input
                     type="file"
                     id="file-upload"
@@ -230,10 +428,7 @@ export default function FolderPage() {
                     onChange={handleFileUpload}
                     disabled={uploading}
                   />
-                  <label
-                    htmlFor="file-upload"
-                    className={`flex items-center cursor-pointer ${uploading ? "opacity-50" : ""}`}
-                  >
+                  <div className="flex items-center">
                     {uploading ? (
                       <>
                         <Loader2 className="h-5 w-5 mr-2 animate-spin" />
@@ -245,7 +440,7 @@ export default function FolderPage() {
                         Upload File
                       </>
                     )}
-                  </label>
+                  </div>
                 </div>
 
                 <div
