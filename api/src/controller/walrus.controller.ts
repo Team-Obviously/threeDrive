@@ -910,3 +910,98 @@ export const initializeUserFileStructure = async (userId: string) => {
     throw error;
   }
 };
+
+export const updateFileContent = () =>
+  catchAsync(async (req: IBaseRequest, res: Response) => {
+    console.log("Starting file content update...");
+    const { fileId } = req.params;
+    const user = req.user;
+
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "No file content provided",
+      });
+    }
+
+    // Find existing file
+    const existingFile = await File.findOne({
+      _id: fileId,
+      userId: user._id.toString(),
+      isFile: true,
+      isDeleted: false,
+    });
+
+    if (!existingFile) {
+      return res.status(404).json({
+        status: "error",
+        message: "File not found",
+      });
+    }
+
+    try {
+      const newContent = req.files[0];
+      const fileBuffer = newContent.buffer;
+
+      // Keep original metadata but update size
+      const metadata = {
+        ...existingFile.metadata,
+        size: newContent.size,
+        uploadedAt: new Date().toISOString(),
+      };
+
+      // Handle file content based on type
+      let fileContent;
+      if (existingFile.metadata.mimetype.startsWith("image/")) {
+        fileContent = `data:${
+          existingFile.metadata.mimetype
+        };base64,${fileBuffer.toString("base64")}`;
+      } else {
+        fileContent = fileBuffer;
+      }
+
+      // Upload new content to Walrus
+      const uploadResult = await axios.put(
+        `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
+        fileContent,
+        {
+          headers: {
+            "Content-Type": existingFile.metadata.mimetype,
+            "X-File-Metadata": JSON.stringify(metadata),
+            ...(existingFile.metadata.mimetype.startsWith("image/") && {
+              "Content-Transfer-Encoding": "base64",
+            }),
+          },
+        }
+      );
+
+      // Update file record with new Walrus IDs
+      const updatedFile = await File.findByIdAndUpdate(
+        fileId,
+        {
+          $set: {
+            blobId: uploadResult.data.newlyCreated.blobObject.blobId,
+            walrusId: uploadResult.data.newlyCreated.blobObject.id,
+            metadata,
+          },
+        },
+        { new: true }
+      );
+
+      return res.status(200).json({
+        status: "success",
+        message: "File content updated successfully",
+        data: {
+          file: updatedFile,
+          walrusResponse: uploadResult.data,
+        },
+      });
+    } catch (error) {
+      console.error("Update error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error updating file content",
+        error: error.message,
+      });
+    }
+  });

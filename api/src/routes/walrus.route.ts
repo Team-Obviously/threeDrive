@@ -14,6 +14,7 @@ import {
   getFile,
   deleteNode,
   createFolder,
+  updateFileContent,
 } from "../controller/walrus.controller";
 import multer from "multer";
 
@@ -40,5 +41,6 @@ router.patch("/move/:id", moveNode());
 
 router.post("/upload", upload.any(), uploadFile());
 router.get("/file/:walrusId/view", getFile());
+router.put("/file/:fileId/content", upload.any(), updateFileContent());
 
 export default router;
