@@ -156,26 +156,34 @@ export default function FolderPage() {
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
+
+    // Close dialog first to show loading state
+    setShowNewFolderDialog(false);
+    setShowDropdown(false);
+
     try {
       const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
       const res = await postRequest(`/walrus/folder`, {
         name: newFolderName,
         parentObjectId: folderId,
       });
-      setFolder(res.data.data.folder);
-      setNewFolderName("");
-      setShowNewFolderDialog(false);
-      setShowDropdown(false);
-      toast({
-        title: "Folder created",
-        description: `Folder "${newFolderName}" has been created`,
-      });
+
+      if (res.data.success) {
+        setFolder(res.data.data.folder);
+        toast({
+          title: "Folder created",
+          description: `Folder "${newFolderName}" has been created`,
+        });
+        setNewFolderName("");
+      }
     } catch (err) {
       toast({
         title: "Error creating folder",
         description: "Could not create folder. Please try again.",
         variant: "destructive",
       });
+      // Reopen dialog on error so user can try again
+      setShowNewFolderDialog(true);
     }
   };
 
@@ -392,6 +400,31 @@ export default function FolderPage() {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <h1 className="text-xl font-semibold">{folder?.path}</h1>
+        </div>
+
+        <div className="relative w-96">
+          <Input
+            type="text"
+            placeholder="Search files..."
+            className="pl-3 pr-10"
+            onChange={e => {
+              console.log(e.target.value);
+            }}
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            <svg
+              className="h-5 w-5 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
         </div>
 
         <div className="relative flex flex-row gap-4">

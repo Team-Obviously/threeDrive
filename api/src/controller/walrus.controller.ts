@@ -121,9 +121,10 @@ export const addObjectToWalrus = () =>
         type: uploadedFile.mimetype,
       });
 
-      const filepath = parentFolder
+      let filepath = parentFolder
         ? `${parentFolder.path}/${uploadedFile.originalname}`
         : `/${uploadedFile.originalname}`;
+      filepath = filepath.replace("//", "/");
       console.log("Generated filepath:", filepath);
 
       const fileBuffer = uploadedFile.buffer;
@@ -142,7 +143,6 @@ export const addObjectToWalrus = () =>
           uploadedFile.mimetype
         };base64,${fileBuffer.toString("base64")}`;
       } else {
-        // For PDFs and other files, use buffer directly
         fileContent = fileBuffer;
       }
 

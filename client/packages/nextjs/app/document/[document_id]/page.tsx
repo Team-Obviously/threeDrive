@@ -87,7 +87,6 @@ export default function DocumentPage({ params }: { params: { document_id: string
       return <PdfViewer url={fileDetails.downloadUrl} fileName={fileDetails.name} />;
     }
 
-    // For other file types
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <p className="mb-4">This file type ({mimetype}) cannot be previewed.</p>
