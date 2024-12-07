@@ -26,6 +26,9 @@ export interface IBaseRequest extends Request {
   user: Partial<IUser>;
   baseUrl: string;
   query: { [index: string]: string };
+  file: any;
+  files: any;
+  
 }
 
 export interface IError extends Error {

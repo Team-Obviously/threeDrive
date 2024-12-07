@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { type Breadcrumb } from "@/types/file-system";
 import { ChevronRight, Home } from "lucide-react";
-import { Breadcrumb } from "~~/types/file-system";
 
 interface BreadcrumbNavProps {
   path: Breadcrumb[];

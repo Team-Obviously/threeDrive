@@ -5,6 +5,7 @@ import Image from "next/image";
 import titleLogo from "../assets/title-logo.png";
 import "@rainbow-me/rainbowkit/styles.css";
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
+import axios from "axios";
 import { BuildType, OktoContextType, OktoProvider, useOkto } from "okto-sdk-react";
 import { ThemeProvider } from "~~/components/ThemeProvider";
 import {
@@ -15,6 +16,7 @@ import {
 } from "~~/components/ui/navigation-menu";
 import { UserProvider, useUser } from "~~/contexts/UserContext";
 import "~~/styles/globals.css";
+import { postRequest } from "~~/utils/generalService";
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 const OKTO_CLIENT_API_KEY = process.env.NEXT_PUBLIC_OKTO_APP_SECRET;
@@ -24,19 +26,17 @@ function Navbar() {
   const { authenticate, getUserDetails, isLoggedIn } = useOkto() as OktoContextType;
   const [userData, setUserData] = useState<any>(null);
 
-  const handleLoginSuccess = (credentialResponse: any) => {
-    authenticate(credentialResponse.credential, async (result, error) => {
-      if (error) {
-        console.error("Authentication error:", error);
-        return;
-      }
-      try {
-        const userData = await getUserDetails();
-        setuserEmail(userData.email);
-      } catch (err) {
-        console.error("Error getting user details:", err);
-      }
-    });
+  const handleLoginSuccess = async (credentialResponse: any) => {
+    try {
+      authenticate(credentialResponse.credential, async (result, error) => {
+        if (error) {
+          console.error("Authentication error:", error);
+          return;
+        }
+      });
+    } catch (err) {
+      console.error("Error getting user details:", err);
+    }
   };
 
   useEffect(() => {
@@ -44,6 +44,21 @@ function Navbar() {
       try {
         const data = await getUserDetails();
         setUserData(data);
+        console.log("User data:", data);
+        try {
+          const response = await postRequest(`/users`, {
+            emailId: data.email,
+          });
+          setuserEmail(response.data.data.emailId);
+          const userId = response.data.data.id;
+          localStorage.setItem("userId", userId);
+
+          if (response.status != 200 || 201) {
+            throw new Error("Failed to create user in backend");
+          }
+        } catch (apiError) {
+          console.error("Error saving user to backend:", apiError);
+        }
       } catch (error) {
         console.error("Error fetching user data:", error);
       }
@@ -70,19 +85,19 @@ function Navbar() {
             <NavigationMenuItem>
               <NavigationMenuLink
                 className="group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50"
-                href="/dashboard"
+                href="/drive"
               >
-                Dashboard
+                Files
               </NavigationMenuLink>
             </NavigationMenuItem>
-            <NavigationMenuItem>
+            {/* <NavigationMenuItem>
               <NavigationMenuLink
                 className="group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50"
                 href="/files"
               >
                 Files
               </NavigationMenuLink>
-            </NavigationMenuItem>
+            </NavigationMenuItem> */}
           </NavigationMenuList>
         </NavigationMenu>
 
