@@ -486,65 +486,92 @@ export const getTreeStructure = () =>
     const userId = req.user._id.toString();
     const { folderId = null } = req.query;
 
-    const query = {
-      userId,
-      isDeleted: false,
-      ...(folderId
-        ? { parent: new Types.ObjectId(folderId as string) }
-        : { parent: null }),
-    };
-
-    const nodes = await File.find(query)
-      .populate({
-        path: "children",
-        match: { isDeleted: false },
-        select: "name isFile metadata children",
-      })
-      .select("name isFile metadata children");
-
-    // If no nodes found, check if root exists, if not create it
-    if (nodes.length === 0) {
-      const rootFolder = await File.findOne({
+    try {
+      const query = {
         userId,
-        path: "/",
-        isFile: false,
         isDeleted: false,
-      });
+        ...(folderId
+          ? { parent: new Types.ObjectId(folderId as string) }
+          : { parent: null }),
+      };
 
-      if (!rootFolder) {
-        // Initialize root folder
-        const newRoot: IWalrusNode = {
+      const nodes = await File.find(query)
+        .populate({
+          path: "children",
+          match: { isDeleted: false, userId },
+          select: "name isFile metadata children userId",
+        })
+        .select("name isFile metadata children userId")
+        .lean();
+
+      const filteredNodes = nodes.map((node) => ({
+        ...node,
+        children:
+          node.children?.filter((child: any) => child.toString() === userId) ||
+          [],
+      }));
+
+      if (filteredNodes.length === 0) {
+        const rootFolder = await File.findOne({
           userId,
-          name: "Root",
           path: "/",
           isFile: false,
-          parent: null,
-          children: [],
-          metadata: {
-            filename: "Root",
-            mimetype: "folder",
-            size: 0,
-            uploadedAt: new Date().toISOString(),
-          },
-        };
-        const createdRoot = await File.create(newRoot);
+          isDeleted: false,
+        });
+
+        if (!rootFolder) {
+          const newRoot: IWalrusNode = {
+            userId,
+            name: "Root",
+            path: "/",
+            isFile: false,
+            parent: null,
+            children: [],
+            metadata: {
+              filename: "Root",
+              mimetype: "folder",
+              size: 0,
+              uploadedAt: new Date().toISOString(),
+            },
+          };
+          const createdRoot = await File.create(newRoot);
+          return res.status(200).json({
+            status: "success",
+            data: [createdRoot],
+          });
+        }
+
         return res.status(200).json({
           status: "success",
-          data: [createdRoot],
+          data: [rootFolder],
         });
       }
 
-      // Return root folder if it exists but is empty
       return res.status(200).json({
         status: "success",
-        data: [rootFolder],
+        data: filteredNodes,
+      });
+    } catch (error) {
+      console.error("Error getting tree structure:", error);
+
+      return res.status(200).json({
+        status: "success",
+        data: [
+          {
+            name: "Root",
+            path: "/",
+            isFile: false,
+            children: [],
+            metadata: {
+              filename: "Root",
+              mimetype: "folder",
+              size: 0,
+              uploadedAt: new Date().toISOString(),
+            },
+          },
+        ],
       });
     }
-
-    return res.status(200).json({
-      status: "success",
-      data: nodes,
-    });
   });
 
 export const moveNode = () =>
