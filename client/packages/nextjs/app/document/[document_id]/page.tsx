@@ -132,9 +132,8 @@ export default function DocumentPage({ params }: { params: { document_id: string
       return renderFileDetails(<PdfViewer url={fileDetails.downloadUrl} fileName={fileDetails.name} />);
     }
 
-    // For other file types
-    return renderFileDetails(
-      <div className="flex flex-col items-center justify-center">
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
         <p className="mb-4">This file type ({mimetype}) cannot be previewed.</p>
         <Button variant="default" asChild>
           <a href={fileDetails.downloadUrl} download={fileDetails.name}>
@@ -142,7 +141,7 @@ export default function DocumentPage({ params }: { params: { document_id: string
             Download File
           </a>
         </Button>
-      </div>,
+      </div>
     );
   };
 
