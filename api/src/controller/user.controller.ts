@@ -1,21 +1,39 @@
 import { Request, Response, NextFunction } from "express";
 import { catchAsync } from "../utils/utils";
 import Users from "../models/user.model";
-import AppError from "../utils/appError";
+import { initializeUserFileStructure } from "./walrus.controller";
 
 export const addUser = () =>
   catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = await Users.create(req.body);
-      if (!user) {
-        return next(new AppError("Failed to create user", 400));
+      const { emailId } = req.body;
+
+      let user = await Users.findOne({ emailId });
+
+      if (user) {
+        return res.status(200).json({
+          status: "success",
+          message: "User already exists",
+          data: user,
+        });
       }
 
-      res.status(201).json({
+      user = await Users.create(req.body);
+
+      await initializeUserFileStructure(user._id.toString());
+
+      return res.status(201).json({
         status: "success",
+        message: "User created successfully",
         data: user,
       });
     } catch (error) {
+      if (error.code === 11000) {
+        return res.status(400).json({
+          status: "error",
+          message: "Email already exists",
+        });
+      }
       next(error);
     }
   });

@@ -462,6 +462,45 @@ export const getTreeStructure = () =>
       })
       .select("name isFile metadata children");
 
+    // If no nodes found, check if root exists, if not create it
+    if (nodes.length === 0) {
+      const rootFolder = await File.findOne({
+        userId,
+        path: "/",
+        isFile: false,
+        isDeleted: false,
+      });
+
+      if (!rootFolder) {
+        // Initialize root folder
+        const newRoot: IWalrusNode = {
+          userId,
+          name: "Root",
+          path: "/",
+          isFile: false,
+          parent: null,
+          children: [],
+          metadata: {
+            filename: "Root",
+            mimetype: "folder",
+            size: 0,
+            uploadedAt: new Date().toISOString(),
+          },
+        };
+        const createdRoot = await File.create(newRoot);
+        return res.status(200).json({
+          status: "success",
+          data: [createdRoot],
+        });
+      }
+
+      // Return root folder if it exists but is empty
+      return res.status(200).json({
+        status: "success",
+        data: [rootFolder],
+      });
+    }
+
     return res.status(200).json({
       status: "success",
       data: nodes,
@@ -621,3 +660,35 @@ export const getFile = () =>
 
     fileStream.data.pipe(res);
   });
+
+export const initializeUserFileStructure = async (userId: string) => {
+  try {
+    const rootFolder: IWalrusNode = {
+      userId,
+      name: "Root",
+      path: "/",
+      isFile: false,
+      parent: null,
+      children: [],
+      metadata: {
+        filename: "Root",
+        mimetype: "folder",
+        size: 0,
+        uploadedAt: new Date().toISOString(),
+      },
+    };
+
+    const existingRoot = await File.findOne({
+      userId,
+      path: "/",
+      isFile: false,
+    });
+
+    if (!existingRoot) {
+      await File.create(rootFolder);
+    }
+  } catch (error) {
+    console.error("Error initializing file structure:", error);
+    throw error;
+  }
+};
