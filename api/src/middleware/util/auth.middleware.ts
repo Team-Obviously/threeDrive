@@ -62,7 +62,6 @@ export const isOwner = (req: any, res: any, next: NextFunction) => {
 
 export const attatchUser = catchAsync(
   async (req: IBaseRequest, res: Response, next: NextFunction) => {
-    c;
     const user = await User.findById(req.headers.authorization.split(" ")[1]);
     if (!user) {
       return next(new AppError("User not found", 401));
