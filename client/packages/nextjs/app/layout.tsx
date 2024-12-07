@@ -88,15 +88,18 @@ function Navbar() {
 
         {/* Auth Section */}
         <div className="flex flex-1 items-center mr-4 justify-end space-x-4">
-          {!isLoggedIn ? (
-            <GoogleLogin
-              onSuccess={handleLoginSuccess}
-              onError={() => console.log("Login Failed")}
-              theme="filled_black"
-              shape="pill"
-              size="large"
-            />
-          ) : (
+          {!isLoggedIn && (
+            <div className="visible">
+              <GoogleLogin
+                onSuccess={handleLoginSuccess}
+                onError={() => console.log("Login Failed")}
+                theme="filled_black"
+                shape="pill"
+                size="large"
+              />
+            </div>
+          )}
+          {isLoggedIn && (
             <div className="flex items-center gap-4">
               <span className="text-sm text-foreground/60">Welcome {userData?.email.split("@")[0]}</span>
               <button
