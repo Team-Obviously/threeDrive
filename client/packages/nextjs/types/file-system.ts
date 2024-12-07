@@ -1,14 +1,24 @@
-export interface FileItem {
-    id: string;
+export interface FileMetadata {
+    filename: string;
+    mimetype: string;
+    size: number;
+    uploadedAt: string;
+}
+
+export interface FileSystemItem {
+    _id: string;
     name: string;
-    type: 'file' | 'folder';
-    size?: number;
-    createdAt: Date;
-    modifiedAt: Date;
-    parentId: string | null;
+    isFile: boolean;
+    children: FileSystemItem[];
+    metadata: FileMetadata;
 }
 
 export interface Breadcrumb {
     id: string;
     name: string;
+}
+
+export interface FileResponse {
+    status: string;
+    data: FileSystemItem[];
 }
