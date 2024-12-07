@@ -219,15 +219,15 @@ export const getFolderContents = () =>
       .populate({
         path: "children",
         match: { isDeleted: false },
-        select: "name isFile metadata children path parent",
+        select: "name isFile metadata children path parent blobId walrusId",
         populate: {
           path: "children",
           match: { isDeleted: false },
-          select: "name isFile metadata children path parent",
+          select: "name isFile metadata children path parent blobId walrusId",
           populate: {
             path: "children",
             match: { isDeleted: false },
-            select: "name isFile metadata children path parent",
+            select: "name isFile metadata children path parent blobId walrusId",
           },
         },
       })

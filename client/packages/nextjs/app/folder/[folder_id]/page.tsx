@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Loader2, MoreVertical, UserPlus, X } from "lucide-react";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { ArrowLeft, Copy, Loader2, MoreVertical, RefreshCw, UserPlus, X } from "lucide-react";
 import { DocumentIcon, DocumentPlusIcon, FolderIcon, FolderPlusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "~~/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~~/components/ui/dialog";
@@ -14,15 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "~~/components/ui/dropdown-menu";
 import { Input } from "~~/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~~/components/ui/table";
 import { getRequest, postRequest } from "~~/utils/generalService";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~~/components/ui/table";
 
 interface FileMetadata {
   filename: string;
@@ -46,10 +39,13 @@ interface FolderItem {
   children: FolderItem[];
   metadata: FileMetadata;
   collaborators: Collaborator[];
+  blobId?: string;
 }
 
 export default function FolderPage() {
   const params = useParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const [folder, setFolder] = useState<FolderItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,22 +58,38 @@ export default function FolderPage() {
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null);
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
 
+  const truncateBlobId = (blobId: string) => {
+    if (!blobId) return "";
+    if (blobId.length <= 8) return blobId;
+    return `${blobId.slice(0, 4)}...${blobId.slice(-4)}`;
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Could add a toast notification here
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  const fetchFolder = async () => {
+    try {
+      setLoading(true);
+      const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
+      const res = await getRequest(`/walrus/folder?id=${folderId}`);
+      console.log("folder", res);
+      setFolder(res.data.data.folder);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load folder contents");
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchFolder = async () => {
-      try {
-        setLoading(true);
-        const res = await getRequest(`/walrus/folder?id=${params.folder_id}`);
-        console.log(res);
-        setFolder(res.data.data.folder);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load folder contents");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchFolder();
-  }, [params.folder_id]);
+  }, [params.folder_id, pathname]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -88,11 +100,12 @@ export default function FolderPage() {
       setUploadProgress(0);
       const formData = new FormData();
       formData.append("file", files[0]);
-      formData.append("parentFolderId", params.folder_id as string);
+      const folderId = pathname.endsWith("root") ? "null" : (params.folder_id as string);
+      formData.append("parentFolderId", folderId);
 
       await postRequest("/walrus/", formData);
 
-      const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
+      const refreshRes = await getRequest(`/walrus/folder?id=${folderId}`);
       setFolder(refreshRes.data.data.folder);
     } catch (err) {
       setError("Failed to upload file");
@@ -105,9 +118,10 @@ export default function FolderPage() {
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     try {
+      const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
       const res = await postRequest(`/walrus/folder`, {
         name: newFolderName,
-        parentObjectId: params.folder_id,
+        parentObjectId: folderId,
       });
       setFolder(res.data.data.folder);
       setNewFolderName("");
@@ -136,8 +150,6 @@ export default function FolderPage() {
             collaborators: [...(prevFolder?.collaborators || []), collaborator],
           };
         });
-        // const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
-        // setFolder(refreshRes.data.data.folder);
         setNewCollaboratorEmail("");
       }
     } catch (err) {
@@ -152,10 +164,19 @@ export default function FolderPage() {
         userId,
       });
 
-      const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
+      const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
+      const refreshRes = await getRequest(`/walrus/folder?id=${folderId}`);
       setFolder(refreshRes.data.data.folder);
     } catch (err) {
       setError("Failed to revoke access");
+    }
+  };
+
+  const handleBack = () => {
+    if (folder?.parent) {
+      router.push(`/folder/${folder.parent}`);
+    } else {
+      router.push('/folder/root');
     }
   };
 
@@ -178,12 +199,20 @@ export default function FolderPage() {
   return (
     <div className="mt-20 px-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{folder?.name || "Loading..."}</h1>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={handleBack}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-2xl font-bold">{folder?.name || "Loading..."}</h1>
+        </div>
 
-        <div className="relative">
+        <div className="relative flex flex-row gap-4">
+          <Button className="" variant="secondary" size="icon" onClick={fetchFolder}>
+            <RefreshCw className="h-6 w-6" />
+          </Button>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="inline-flex items-center px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
+            className="inline-flex h-10 items-center px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
             New
@@ -249,7 +278,7 @@ export default function FolderPage() {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Size</TableHead>
-              <TableHead>Last Modified</TableHead>
+              <TableHead>Blob ID</TableHead>
               <TableHead className="w-[70px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -274,7 +303,17 @@ export default function FolderPage() {
                   {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
                 </TableCell>
                 <TableCell>
-                  {item.isFile ? new Date(item.metadata.uploadedAt).toLocaleDateString() : "-"}
+                  {item.blobId && (
+                    <div className="flex items-center space-x-2">
+                      <span>{truncateBlobId(item.blobId)}</span>
+                      <button
+                        onClick={() => copyToClipboard(item.blobId || "")}
+                        className="p-1 hover:bg-gray-100 rounded"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -298,9 +337,7 @@ export default function FolderPage() {
             ))}
           </TableBody>
         </Table>
-        {folder?.children.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">This folder is empty</div>
-        )}
+        {folder?.children.length === 0 && <div className="text-center text-gray-500 mt-8">This folder is empty</div>}
       </div>
 
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
