@@ -1,11 +1,36 @@
+import { ObjectId } from "mongoose";
+
 export interface IFileMetadata {
   filename: string;
   mimetype: string;
   size: number;
   uploadedAt: string;
-  filepath: string;
 }
 
+export interface ICollaborator {
+  userId: string;
+  accessLevel: "read" | "write" | "admin";
+  addedAt: Date;
+}
+
+export interface IWalrusNode {
+  _id?: ObjectId;
+  userId: string;
+  path: string;
+  name: string;
+  isFile: boolean;
+  parent: ObjectId | null; // null for root
+  children: ObjectId[];
+  collaborators?: ICollaborator[];
+  isDeleted?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+
+  // File-specific properties
+  blobId?: string;
+  walrusId?: string;
+  metadata?: IFileMetadata;
+}
 export interface IWalrusStorage {
   id: string;
   startEpoch: number;
@@ -35,50 +60,4 @@ export interface IWalrusResponse {
     };
     cost: number;
   };
-}
-
-export interface ICollaborator {
-  userId: string;
-  accessLevel: "read" | "write" | "admin";
-  addedAt: Date;
-}
-
-export interface IWalrusFile {
-  _id?: string;
-  userId: string;
-  blobId: string;
-  walrusId: string;
-  metadata: IFileMetadata;
-  parentFolder: string;
-  path: string;
-  isFolder?: boolean;
-  isDeleted?: boolean;
-  collaborators?: ICollaborator[];
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export interface IFileUploadResponse {
-  status: string;
-  message: string;
-  data: {
-    walrusId: string;
-    url: string;
-    filename: string;
-    mimetype: string;
-    size: number;
-    uploadedAt: string;
-  };
-}
-
-export interface IFolder {
-  _id?: string;
-  userId: string;
-  name: string;
-  path: string;
-  parentFolder: string;
-  isFolder: true;
-  collaborators?: ICollaborator[];
-  createdAt?: Date;
-  updatedAt?: Date;
 }

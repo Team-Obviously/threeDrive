@@ -1,59 +1,75 @@
-import mongoose, { Schema, Document } from "mongoose";
-import { IWalrusFile } from "../Interfaces/file.interface";
+import { Schema, model } from "mongoose";
+import { IWalrusNode } from "../Interfaces/file.interface";
 
-const fileSchema = new Schema(
+const collaboratorSchema = new Schema({
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  accessLevel: {
+    type: String,
+    enum: ["read", "write", "admin"],
+    required: true,
+  },
+  addedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+const fileSchema = new Schema<IWalrusNode>(
   {
     userId: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    blobId: {
       type: String,
       required: true,
     },
-    walrusId: {
+    name: {
       type: String,
       required: true,
-      unique: true,
-    },
-    metadata: {
-      filename: {
-        type: String,
-        required: true,
-      },
-      mimetype: {
-        type: String,
-        required: true,
-      },
-      size: {
-        type: Number,
-        required: true,
-      },
-      uploadedAt: {
-        type: String,
-        required: true,
-      },
-      filepath: {
-        type: String,
-        required: true,
-      },
-    },
-    parentFolder: {
-      type: String,
-      default: "/", // Root folder
     },
     path: {
       type: String,
       required: true,
     },
-    isFolder: {
+    isFile: {
       type: Boolean,
-      default: false,
+      required: true,
     },
+    parent: {
+      type: Schema.Types.ObjectId,
+      ref: "File",
+      default: null,
+    },
+    children: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "File",
+      },
+    ],
+    collaborators: [collaboratorSchema],
     isDeleted: {
       type: Boolean,
       default: false,
+    },
+    // File-specific properties
+    blobId: {
+      type: String,
+      required: function (this: IWalrusNode) {
+        return this.isFile;
+      },
+    },
+    walrusId: {
+      type: String,
+      required: function (this: IWalrusNode) {
+        return this.isFile;
+      },
+    },
+    metadata: {
+      filename: String,
+      mimetype: String,
+      size: Number,
+      uploadedAt: String,
     },
   },
   {
@@ -61,8 +77,10 @@ const fileSchema = new Schema(
   }
 );
 
-// Index for faster path-based queries
-fileSchema.index({ path: 1, userId: 1 });
-fileSchema.index({ parentFolder: 1, userId: 1 });
+// Indexes for better query performance
+fileSchema.index({ userId: 1, path: 1 });
+fileSchema.index({ parent: 1 });
+fileSchema.index({ isDeleted: 1 });
+fileSchema.index({ "collaborators.userId": 1 });
 
-export default mongoose.model<IWalrusFile & Document>("File", fileSchema);
+export default model<IWalrusNode>("File", fileSchema);
