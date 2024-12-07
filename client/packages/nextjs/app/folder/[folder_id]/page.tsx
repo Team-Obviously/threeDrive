@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Loader2, MoreVertical, UserPlus, X } from "lucide-react";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { ArrowLeft, Copy, Loader2, MoreVertical, RefreshCw, UserPlus, X } from "lucide-react";
 import { DocumentIcon, DocumentPlusIcon, FolderIcon, FolderPlusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "~~/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~~/components/ui/dialog";
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "~~/components/ui/dropdown-menu";
 import { Input } from "~~/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~~/components/ui/table";
 import { getRequest, postRequest } from "~~/utils/generalService";
 
 interface FileMetadata {
@@ -38,10 +39,13 @@ interface FolderItem {
   children: FolderItem[];
   metadata: FileMetadata;
   collaborators: Collaborator[];
+  blobId?: string;
 }
 
 export default function FolderPage() {
   const params = useParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const [folder, setFolder] = useState<FolderItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,22 +58,38 @@ export default function FolderPage() {
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null);
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("");
 
+  const truncateBlobId = (blobId: string) => {
+    if (!blobId) return "";
+    if (blobId.length <= 8) return blobId;
+    return `${blobId.slice(0, 4)}...${blobId.slice(-4)}`;
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Could add a toast notification here
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  const fetchFolder = async () => {
+    try {
+      setLoading(true);
+      const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
+      const res = await getRequest(`/walrus/folder?id=${folderId}`);
+      console.log("folder", res);
+      setFolder(res.data.data.folder);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load folder contents");
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchFolder = async () => {
-      try {
-        setLoading(true);
-        const res = await getRequest(`/walrus/folder?id=${params.folder_id}`);
-        console.log(res);
-        setFolder(res.data.data.folder);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load folder contents");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchFolder();
-  }, [params.folder_id]);
+  }, [params.folder_id, pathname]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -80,11 +100,12 @@ export default function FolderPage() {
       setUploadProgress(0);
       const formData = new FormData();
       formData.append("file", files[0]);
-      formData.append("parentFolderId", params.folder_id as string);
+      const folderId = pathname.endsWith("root") ? "null" : (params.folder_id as string);
+      formData.append("parentFolderId", folderId);
 
       await postRequest("/walrus/", formData);
 
-      const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
+      const refreshRes = await getRequest(`/walrus/folder?id=${folderId}`);
       setFolder(refreshRes.data.data.folder);
     } catch (err) {
       setError("Failed to upload file");
@@ -97,9 +118,10 @@ export default function FolderPage() {
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     try {
+      const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
       const res = await postRequest(`/walrus/folder`, {
         name: newFolderName,
-        parentObjectId: params.folder_id,
+        parentObjectId: folderId,
       });
       setFolder(res.data.data.folder);
       setNewFolderName("");
@@ -128,8 +150,6 @@ export default function FolderPage() {
             collaborators: [...(prevFolder?.collaborators || []), collaborator],
           };
         });
-        // const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
-        // setFolder(refreshRes.data.data.folder);
         setNewCollaboratorEmail("");
       }
     } catch (err) {
@@ -144,10 +164,19 @@ export default function FolderPage() {
         userId,
       });
 
-      const refreshRes = await getRequest(`/walrus/folder?id=${params.folder_id}`);
+      const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
+      const refreshRes = await getRequest(`/walrus/folder?id=${folderId}`);
       setFolder(refreshRes.data.data.folder);
     } catch (err) {
       setError("Failed to revoke access");
+    }
+  };
+
+  const handleBack = () => {
+    if (folder?.parent) {
+      router.push(`/folder/${folder.parent}`);
+    } else {
+      router.push('/folder/root');
     }
   };
 
@@ -170,12 +199,20 @@ export default function FolderPage() {
   return (
     <div className="mt-20 px-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{folder?.name || "Loading..."}</h1>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={handleBack}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-2xl font-bold">{folder?.name || "Loading..."}</h1>
+        </div>
 
-        <div className="relative">
+        <div className="relative flex flex-row gap-4">
+          <Button className="" variant="secondary" size="icon" onClick={fetchFolder}>
+            <RefreshCw className="h-6 w-6" />
+          </Button>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="inline-flex items-center px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
+            className="inline-flex h-10 items-center px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
             New
@@ -233,48 +270,76 @@ export default function FolderPage() {
           )}
         </div>
       </div>
-      `{" "}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {folder?.children.map(item => (
-          <div key={item._id} className="relative">
-            <Link
-              href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
-              className="p-4 border rounded-lg hover:bg-gray-100 transition-colors duration-200 flex flex-col items-center"
-            >
-              {item.isFile ? (
-                <DocumentIcon className="h-12 w-12 text-blue-500" />
-              ) : (
-                <FolderIcon className="h-12 w-12 text-yellow-500" />
-              )}
-              <span className="mt-2 text-sm font-medium text-center">{item.name}</span>
-              <span className="mt-1 text-xs text-gray-500">
-                {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
-              </span>
-              {/* <span className="mt-1 text-xs text-gray-500">{formatDate(item.metadata.uploadedAt)}</span> */}
-            </Link>
 
-            <div className="absolute top-2 right-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSelectedItem(item);
-                      setShowShareDialog(true);
-                    }}
+      <div className="mt-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Size</TableHead>
+              <TableHead>Blob ID</TableHead>
+              <TableHead className="w-[70px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {folder?.children.map(item => (
+              <TableRow key={item._id}>
+                <TableCell>
+                  <Link
+                    href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
+                    className="flex items-center space-x-2 hover:text-blue-500"
                   >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Share
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        ))}
+                    {item.isFile ? (
+                      <DocumentIcon className="h-5 w-5 text-blue-500" />
+                    ) : (
+                      <FolderIcon className="h-5 w-5 text-yellow-500" />
+                    )}
+                    <span>{item.name}</span>
+                  </Link>
+                </TableCell>
+                <TableCell>{item.isFile ? "File" : "Folder"}</TableCell>
+                <TableCell>
+                  {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
+                </TableCell>
+                <TableCell>
+                  {item.blobId && (
+                    <div className="flex items-center space-x-2">
+                      <span>{truncateBlobId(item.blobId)}</span>
+                      <button
+                        onClick={() => copyToClipboard(item.blobId || "")}
+                        className="p-1 hover:bg-gray-100 rounded"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger>
+                      <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setShowShareDialog(true);
+                        }}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Share
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {folder?.children.length === 0 && <div className="text-center text-gray-500 mt-8">This folder is empty</div>}
       </div>
-      {folder?.children.length === 0 && <div className="text-center text-gray-500 mt-8">This folder is empty</div>}
+
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
         <DialogContent>
           <DialogHeader>
