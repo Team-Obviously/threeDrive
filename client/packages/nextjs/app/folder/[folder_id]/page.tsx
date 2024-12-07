@@ -110,7 +110,7 @@ export default function FolderPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setIsSearching(params.get('search') === 'true');
+    setIsSearching(params.get("search") === "true");
   }, [pathname]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -489,6 +489,7 @@ export default function FolderPage() {
               <TableHead>Type</TableHead>
               <TableHead>Size</TableHead>
               <TableHead>Blob ID</TableHead>
+              {isSearching && <TableHead>Path</TableHead>}
               <TableHead className="w-[70px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -526,6 +527,13 @@ export default function FolderPage() {
                         </div>
                       )}
                     </TableCell>
+                    {isSearching && (
+                      <TableCell>
+                        <a href={`/folder/${item.parent}`} className="text-blue-500 hover:underline">
+                          {item.path}
+                        </a>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger>
