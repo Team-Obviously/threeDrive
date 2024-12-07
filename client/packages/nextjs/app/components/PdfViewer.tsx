@@ -44,7 +44,7 @@ export default function PdfViewer({ url, fileName }: { url: string; fileName: st
   }
 
   return (
-    <div className="w-full min-h-screen p-8 bg-gray-100">
+    <div className="w-full  p-8 bg-gray-100">
       <div className="max-w-5xl mx-auto bg-white rounded-lg shadow-lg p-6">
         <Document
           file={pdfData}
@@ -57,7 +57,6 @@ export default function PdfViewer({ url, fileName }: { url: string; fileName: st
           }
           error={
             <div className="text-center p-4">
-              <p className="text-red-500 mb-2">Failed to load PDF</p>
               <a href={url} className="text-blue-500 hover:underline">
                 Download {fileName}
               </a>

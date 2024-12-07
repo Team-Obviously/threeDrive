@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Download, Link as LinkIcon, Loader2, Share2 } from "lucide-react";
+import { BackwardIcon } from "@heroicons/react/24/outline";
 import CodeBlock from "~~/app/components/CodeBlock";
 import PdfViewer from "~~/app/components/PdfViewer";
 import { Button } from "~~/components/ui/button";
@@ -124,7 +126,7 @@ export default function DocumentPage({ params }: { params: { document_id: string
 
     if (fileDetails.isImage) {
       return renderFileDetails(
-        <img src={imageContent} alt={fileDetails.name} className="w-full h-96 object-contain" />,
+        <img src={imageContent!} alt={fileDetails.name} className="w-full h-96 object-contain" />,
       );
     }
 
@@ -145,7 +147,18 @@ export default function DocumentPage({ params }: { params: { document_id: string
     );
   };
 
-  return <div className="min-h-screen bg-gray-50">{renderContent()}</div>;
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex m-4   justify-start items-center">
+        <Button variant="outline" size="lg" asChild>
+          <Link href="/">
+            <BackwardIcon className="h-5 w-5 mr-2" /> Back
+          </Link>
+        </Button>
+      </div>
+      {renderContent()}
+    </div>
+  );
 }
 
 // Update TextEditor to accept initial content
@@ -259,9 +272,9 @@ function TextEditor({
   };
 
   return (
-    <div className="container mx-auto max-w-4xl bg-[#1e1e1e] shadow-md rounded-lg p-8 my-10">
+    <div className="container mx-auto max-w-6xl bg-[#1e1e1e] shadow-md rounded-lg p-8 my-10">
       <header className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-white">Code Editor</h1>
+        <h1 className="text-2xl font-bold mx-2 text-white">Code Editor</h1>
         <div className="flex items-center gap-4">
           <Button onClick={handleSave} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white">
             {isSaving ? (
