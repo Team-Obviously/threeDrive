@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
@@ -62,6 +62,9 @@ export default function FolderPage() {
   const [showConfetti, setShowConfetti] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<FolderItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const truncateBlobId = (blobId: string) => {
     if (!blobId) return "";
@@ -104,6 +107,11 @@ export default function FolderPage() {
   useEffect(() => {
     fetchFolder();
   }, [params.folder_id, pathname]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setIsSearching(params.get('search') === 'true');
+  }, [pathname]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -331,6 +339,27 @@ export default function FolderPage() {
     frame();
   };
 
+  const handleSearch = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) {
+      setIsSearching(false);
+      setSearchResults([]);
+      const newUrl = window.location.pathname;
+      window.history.pushState({}, "", newUrl);
+      return;
+    }
+
+    setIsSearching(true);
+    const params = new URLSearchParams(window.location.search);
+    params.set("search", "true");
+
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.pushState({}, "", newUrl);
+
+    const res = await getRequest(`/walrus/search?query=${searchQuery}`);
+    setSearchResults(res.data.data.files);
+  };
+
   return (
     <div
       className="mt-10 px-8 relative min-h-screen"
@@ -363,32 +392,6 @@ export default function FolderPage() {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <h1 className="text-xl font-semibold">{folder?.path}</h1>
-        </div>
-
-        <div className="relative w-96">
-          <Input
-            type="text"
-            placeholder="Search files..."
-            className="pl-3 pr-10"
-            onChange={e => {
-              // TODO: Implement search functionality
-              console.log(e.target.value);
-            }}
-          />
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-            <svg
-              className="h-5 w-5 text-gray-400"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
         </div>
 
         <div className="relative flex flex-row gap-4">
@@ -466,6 +469,17 @@ export default function FolderPage() {
           )}
         </div>
       </div>
+      <form onSubmit={handleSearch} className="flex items-center gap-4">
+        <Input
+          type="text"
+          placeholder="Search files..."
+          className="pl-3 pr-10"
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+        <Button variant="default" type="submit">
+          Search
+        </Button>
+      </form>
 
       <div className="mt-4">
         <Table>
@@ -479,61 +493,118 @@ export default function FolderPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {folder?.children.map(item => (
-              <TableRow key={item._id}>
-                <TableCell>
-                  <Link
-                    href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
-                    className="flex items-center space-x-2 hover:text-blue-500"
-                  >
-                    {item.isFile ? (
-                      <DocumentIcon className="h-5 w-5 text-blue-500" />
-                    ) : (
-                      <FolderIcon className="h-5 w-5 text-yellow-500" />
-                    )}
-                    <span>{item.name}</span>
-                  </Link>
-                </TableCell>
-                <TableCell>{item.isFile ? "File" : "Folder"}</TableCell>
-                <TableCell>
-                  {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
-                </TableCell>
-                <TableCell>
-                  {item.blobId && (
-                    <div className="flex items-center space-x-2">
-                      <span>{truncateBlobId(item.blobId)}</span>
-                      <button
-                        onClick={() => copyToClipboard(item.blobId || "")}
-                        className="p-1 hover:bg-gray-100 rounded"
+            {isSearching
+              ? searchResults.map(item => (
+                  <TableRow key={item._id}>
+                    <TableCell>
+                      <Link
+                        href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
+                        className="flex items-center space-x-2 hover:text-blue-500"
                       >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger>
-                      <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedItem(item);
-                          setShowShareDialog(true);
-                        }}
+                        {item.isFile ? (
+                          <DocumentIcon className="h-5 w-5 text-blue-500" />
+                        ) : (
+                          <FolderIcon className="h-5 w-5 text-yellow-500" />
+                        )}
+                        <span>{item.name}</span>
+                      </Link>
+                    </TableCell>
+                    <TableCell>{item.isFile ? "File" : "Folder"}</TableCell>
+                    <TableCell>
+                      {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
+                    </TableCell>
+                    <TableCell>
+                      {item.blobId && (
+                        <div className="flex items-center space-x-2">
+                          <span>{truncateBlobId(item.blobId)}</span>
+                          <button
+                            onClick={() => copyToClipboard(item.blobId || "")}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger>
+                          <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setShowShareDialog(true);
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Share
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              : folder?.children.map(item => (
+                  <TableRow key={item._id}>
+                    <TableCell>
+                      <Link
+                        href={item.isFile ? `/document/${item._id}` : `/folder/${item._id}`}
+                        className="flex items-center space-x-2 hover:text-blue-500"
                       >
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Share
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                        {item.isFile ? (
+                          <DocumentIcon className="h-5 w-5 text-blue-500" />
+                        ) : (
+                          <FolderIcon className="h-5 w-5 text-yellow-500" />
+                        )}
+                        <span>{item.name}</span>
+                      </Link>
+                    </TableCell>
+                    <TableCell>{item.isFile ? "File" : "Folder"}</TableCell>
+                    <TableCell>
+                      {item.isFile ? formatFileSize(item.metadata.size) : `${item.children.length} items`}
+                    </TableCell>
+                    <TableCell>
+                      {item.blobId && (
+                        <div className="flex items-center space-x-2">
+                          <span>{truncateBlobId(item.blobId)}</span>
+                          <button
+                            onClick={() => copyToClipboard(item.blobId || "")}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger>
+                          <MoreVertical className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setShowShareDialog(true);
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Share
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
           </TableBody>
         </Table>
-        {folder?.children.length === 0 && <div className="text-center text-gray-500 mt-8">This folder is empty</div>}
+        {((isSearching && searchResults.length === 0) || (!isSearching && folder?.children.length === 0)) && (
+          <div className="text-center text-gray-500 mt-8">
+            {isSearching ? "No search results found" : "This folder is empty"}
+          </div>
+        )}
       </div>
 
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
