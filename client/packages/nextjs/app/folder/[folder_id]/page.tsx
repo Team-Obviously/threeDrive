@@ -197,7 +197,7 @@ export default function FolderPage() {
   };
 
   return (
-    <div className="mt-20 px-8">
+    <div className="mt-10 px-8">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={handleBack}>

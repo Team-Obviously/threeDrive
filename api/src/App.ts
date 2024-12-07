@@ -42,7 +42,7 @@ app.use(express.json());
 app.use(
   cors({
     credentials: true,
-    origin: reactAppBaseUrl ? [reactAppBaseUrl] : true,
+    origin: "*",
   })
 );
 app.use(cookieParser());
