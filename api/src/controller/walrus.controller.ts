@@ -622,6 +622,38 @@ const handleFileUpload = async (
   userId: string,
   filepath: string = "/"
 ) => {
+  // Check if same file exists (by name and size)
+  const existingFile = await File.findOne({
+    userId,
+    "metadata.filename": file.originalname,
+    "metadata.size": file.size,
+    isFile: true,
+    isDeleted: false,
+  });
+
+  if (existingFile) {
+    // Create new file record with existing Walrus data
+    const newFileData: IWalrusNode = {
+      userId,
+      name: file.originalname,
+      path: filepath,
+      isFile: true,
+      parent: null,
+      children: [],
+      blobId: existingFile.blobId, // Reuse existing blobId
+      walrusId: existingFile.walrusId, // Reuse existing walrusId
+      metadata: {
+        filename: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        uploadedAt: new Date().toISOString(),
+      },
+    };
+
+    return File.create(newFileData);
+  }
+
+  // If no existing file, proceed with normal upload
   const fileBuffer = file.buffer;
   const metadata = {
     filename: file.originalname,
@@ -630,7 +662,6 @@ const handleFileUpload = async (
     uploadedAt: new Date().toISOString(),
   };
 
-  // Upload to Walrus storage
   const uploadResult = await axios.put(
     `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
     fileBuffer,

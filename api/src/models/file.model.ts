@@ -52,18 +52,20 @@ const fileSchema = new Schema<IWalrusNode>(
       type: Boolean,
       default: false,
     },
-    // File-specific properties
+    // Only required for files, not folders
     blobId: {
       type: String,
       required: function (this: IWalrusNode) {
         return this.isFile;
       },
+      sparse: true, // Allow null for folders
     },
     walrusId: {
       type: String,
       required: function (this: IWalrusNode) {
         return this.isFile;
       },
+      sparse: true, // Allow null for folders
     },
     metadata: {
       filename: String,
@@ -81,6 +83,7 @@ const fileSchema = new Schema<IWalrusNode>(
 fileSchema.index({ userId: 1, path: 1 });
 fileSchema.index({ parent: 1 });
 fileSchema.index({ isDeleted: 1 });
+fileSchema.index({ walrusId: 1 }, { sparse: true }); // Make sparse index
 fileSchema.index({ "collaborators.userId": 1 });
 
 export default model<IWalrusNode>("File", fileSchema);
