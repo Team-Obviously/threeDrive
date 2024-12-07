@@ -76,13 +76,12 @@ export const addObjectToWalrus = () =>
       });
     }
 
-    const parentFolderId = req.body.parentFolderId;
-
-    const parentFolder = await File.findById(parentFolderId);
-
+    const parentFolderId = req.body.parentFolderId || null;
     try {
       const uploadedFile = req.files[0];
-      const filepath = req.body.filepath || "/";
+      const filepath = parentFolderId
+        ? `${req.body.filepath}/${uploadedFile.originalname}`
+        : `/${uploadedFile.originalname}`;
       const fileBuffer = uploadedFile.buffer;
 
       const metadata = {
@@ -90,60 +89,21 @@ export const addObjectToWalrus = () =>
         mimetype: uploadedFile.mimetype,
         size: uploadedFile.size,
         uploadedAt: new Date().toISOString(),
-        filepath,
       };
 
-      const metadataString = JSON.stringify(metadata);
-
+      // Upload to Walrus
       const uploadResult = await axios.put(
         `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
         fileBuffer,
         {
           headers: {
             "Content-Type": "application/octet-stream",
-            "X-File-Metadata": metadataString,
+            "X-File-Metadata": JSON.stringify(metadata),
           },
         }
       );
-      let currentParentId: ObjectId | null = null;
 
-      // for (const folder of folders.slice(0, -1)) {
-      //   currentPath += `/${folder}`;
-      //   const folderData: IWalrusNode = {
-      //     userId: user._id.toString(),
-      //     name: folder,
-      //     path: currentPath,
-      //     isFile: false,
-      //     parent: currentParentId,
-      //     children: [],
-      //     metadata: {
-      //       filename: folder,
-      //       mimetype: "folder",
-      //       size: 0,
-      //       uploadedAt: new Date().toISOString(),
-      //     },
-      //   };
-
-      //   const existingFolder = await File.findOne({
-      //     userId: user._id.toString(),
-      //     path: currentPath,
-      //     isFile: false,
-      //     isDeleted: false,
-      //   });
-
-      //   if (existingFolder) {
-      //     currentParentId = existingFolder._id;
-      //   } else {
-      //     const newFolder = await File.create(folderData);
-      //     if (currentParentId) {
-      //       await File.findByIdAndUpdate(currentParentId, {
-      //         $push: { children: newFolder._id },
-      //       });
-      //     }
-      //     currentParentId = newFolder._id;
-      //   }
-      // }
-
+      // Create file record
       const fileData: IWalrusNode = {
         userId: user._id.toString(),
         name: uploadedFile.originalname,
@@ -153,32 +113,45 @@ export const addObjectToWalrus = () =>
         children: [],
         blobId: uploadResult.data.newlyCreated.blobObject.blobId,
         walrusId: uploadResult.data.newlyCreated.blobObject.id,
-        metadata: {
-          filename: uploadedFile.originalname,
-          mimetype: uploadedFile.mimetype,
-          size: uploadedFile.size,
-          uploadedAt: new Date().toISOString(),
-        },
+        metadata,
       };
 
       const newFile = await File.create(fileData);
 
-      if (parentFolder) {
-        await File.findByIdAndUpdate(parentFolder._id, {
+      // Update parent folder if exists
+      if (parentFolderId) {
+        await File.findByIdAndUpdate(parentFolderId, {
           $push: { children: newFile._id },
         });
       }
+
+      // Get updated folder structure
+      const updatedFolder = parentFolderId
+        ? await File.findById(parentFolderId)
+            .populate({
+              path: "children",
+              match: { isDeleted: false },
+              select: "name isFile metadata children path parent",
+            })
+            .lean()
+        : null;
+
       return res.status(200).json({
         status: "success",
         message: "File uploaded successfully",
         data: {
           file: newFile,
+          folder: updatedFolder ? updatedFolder : null,
           walrusResponse: uploadResult.data,
         },
       });
     } catch (error) {
       console.error("Upload error:", error);
-      return next(error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error uploading file",
+        error: error.message,
+      });
     }
   });
 
@@ -230,7 +203,7 @@ export const getFolderContents = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
     let { id } = req.query;
 
-    if (!id) {
+    if (!id || id === "null") {
       const rootFolder = await File.findOne({
         userId: req.user._id.toString(),
         isFile: false,
@@ -839,11 +812,11 @@ export const getFile = () =>
       }
     );
 
-    res.setHeader("Content-Type", file.metadata.mimetype);
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${encodeURIComponent(file.metadata.filename)}"`
-    );
+    // res.setHeader("Content-Type", file.metadata.mimetype);
+    // res.setHeader(
+    //   "Content-Disposition",
+    //   `inline; filename="${encodeURIComponent(file.metadata.filename)}"`
+    // );
 
     fileStream.data.pipe(res);
   });

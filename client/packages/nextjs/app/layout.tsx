@@ -5,7 +5,6 @@ import Image from "next/image";
 import titleLogo from "../assets/title-logo.png";
 import "@rainbow-me/rainbowkit/styles.css";
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
-import axios from "axios";
 import { BuildType, OktoContextType, OktoProvider, useOkto } from "okto-sdk-react";
 import { ThemeProvider } from "~~/components/ThemeProvider";
 import {
@@ -52,8 +51,7 @@ function Navbar() {
           setuserEmail(response.data.data.emailId);
           const userId = response.data.data.id;
           localStorage.setItem("userId", userId);
-
-          if (response.status != 200 || 201) {
+          if (response.statusText != "OK") {
             throw new Error("Failed to create user in backend");
           }
         } catch (apiError) {

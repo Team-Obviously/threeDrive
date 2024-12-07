@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Text Editor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Collaborative Text Editor</h1>
+            <div class="status">Status: <span id="connection-status">Disconnected</span></div>
+        </div>
+        <div class="editor-container">
+            <textarea id="editor" placeholder="Start typing here..."></textarea>
+        </div>
+        <div class="info">
+            <p>Document ID: <span id="document-id"></span></p>
+            <p id="user-count">Users connected: 1</p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
