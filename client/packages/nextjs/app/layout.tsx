@@ -138,7 +138,7 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
             <OktoProvider apiKey={OKTO_CLIENT_API_KEY!} buildType={BuildType.SANDBOX}>
               <UserProvider>
                 <Navbar />
-                <main>{children}</main>
+                <main className="pt-14">{children}</main>
               </UserProvider>
             </OktoProvider>
           </GoogleOAuthProvider>

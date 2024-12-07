@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from typing import Dict, Set, List
 import json
 
-app = FastAPI()
+app = FastAPI(port=7000)
 
 # Mount the static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")

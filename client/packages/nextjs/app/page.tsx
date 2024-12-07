@@ -54,7 +54,7 @@ const Home: NextPage = () => {
 
             <div className="relative inline-block">
               <Link
-                href="/documents"
+                href="/folder/null"
                 className="relative inline-flex items-center px-8 py-4 text-lg font-medium text-white bg-primary rounded-xl overflow-hidden transition-transform hover:scale-105"
               >
                 Start Collaborating
