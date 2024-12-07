@@ -50,7 +50,6 @@ export default function FolderPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [folder, setFolder] = useState<FolderItem | null>(null);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -90,22 +89,26 @@ export default function FolderPage() {
 
   const fetchFolder = async () => {
     try {
-      setLoading(true);
       const folderId = pathname.endsWith("root") ? "null" : params.folder_id;
       const res = await getRequest(`/walrus/folder?id=${folderId}`);
-      setFolder(res.data.data.folder);
+      
+      // Only update if data has changed
+      if (JSON.stringify(folder) !== JSON.stringify(res.data.data.folder)) {
+        setFolder(res.data.data.folder);
+      }
     } catch (err) {
       toast({
         title: "Error loading folder",
         description: "Could not load folder contents. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchFolder();
+    const interval = setInterval(fetchFolder, 2000);
+    return () => clearInterval(interval);
   }, [params.folder_id, pathname]);
 
   useEffect(() => {
@@ -305,10 +308,6 @@ export default function FolderPage() {
       setUploadingFile(null);
     }
   };
-
-  if (loading) {
-    return <div className="mt-20 flex justify-center">Loading...</div>;
-  }
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
