@@ -23,7 +23,7 @@ interface TreeNode {
 export const createFolder = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
     const { name, parentObjectId } = req.body;
-
+    console.log("parentObjectId", parentObjectId);
     if (!parentObjectId) {
       const rootFolder = await File.findOne({
         userId: req.user._id.toString(),
@@ -45,10 +45,11 @@ export const createFolder = () =>
       }
     } else {
       const parent = await File.findById(parentObjectId);
+      console.log("parent", parent);
       const newFolder = await File.create({
         userId: req.user._id.toString(),
         name,
-        path: parent.path + "/" + name,
+        path: parent.path === "/" ? "/" + name : parent.path + "/" + name,
         isFile: false,
         parent: parentObjectId,
         children: [],
@@ -77,10 +78,11 @@ export const addObjectToWalrus = () =>
     }
 
     const parentFolderId = req.body.parentFolderId || null;
+    const parentFolder = await File.findById(parentFolderId);
     try {
       const uploadedFile = req.files[0];
       const filepath = parentFolderId
-        ? `${req.body.filepath}/${uploadedFile.originalname}`
+        ? `${parentFolder.path}/${uploadedFile.originalname}`
         : `/${uploadedFile.originalname}`;
       const fileBuffer = uploadedFile.buffer;
 
