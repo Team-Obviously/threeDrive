@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Copy, Loader2, MoreVertical, RefreshCw, UserPlus, X } from "lucide-react";
 import { DocumentIcon, DocumentPlusIcon, FolderIcon, FolderPlusIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { Breadcrumb, BreadcrumbEllipsis, BreadcrumbItem, BreadcrumbLink } from "~~/components/ui/breadcrumb";
 import { Button } from "~~/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~~/components/ui/dialog";
 import {
@@ -176,7 +177,7 @@ export default function FolderPage() {
     if (folder?.parent) {
       router.push(`/folder/${folder.parent}`);
     } else {
-      router.push('/folder/root');
+      router.push("/folder/root");
     }
   };
 
@@ -203,7 +204,7 @@ export default function FolderPage() {
           <Button variant="ghost" size="icon" onClick={handleBack}>
             <ArrowLeft className="h-6 w-6" />
           </Button>
-          <h1 className="text-2xl font-bold">{folder?.name || "Loading..."}</h1>
+          <h1 className="text-xl font-semibold">{folder?.path}</h1>
         </div>
 
         <div className="relative flex flex-row gap-4">
