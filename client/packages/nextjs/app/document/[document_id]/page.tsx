@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Download, Link as LinkIcon, Loader2, Share2 } from "lucide-react";
+import { BackwardIcon } from "@heroicons/react/24/outline";
 import CodeBlock from "~~/app/components/CodeBlock";
 import PdfViewer from "~~/app/components/PdfViewer";
 import { Button } from "~~/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~~/components/ui/dropdown-menu";
+import SparklesText from "~~/components/ui/sparkles-text";
+import { useToast } from "~~/hooks/use-toast";
 import { getRequest, patchRequest, postRequest } from "~~/utils/generalService";
 
 interface FileDetails {
@@ -67,41 +77,88 @@ export default function DocumentPage({ params }: { params: { document_id: string
 
     if (!mimetype) return null;
 
+    const renderFileDetails = (children: React.ReactNode) => (
+      <div className="relative flex flex-col justify-center min-h-screen items-center">
+        <div className="max-w-4xl w-auto p-10 mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="relative">{children}</div>
+          <div className="p-6 border-t">
+            <div className="flex justify-between items-center flex-col gap-2">
+              <SparklesText className="text-center text-2xl" text={fileDetails.name} />
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
+                  </svg>
+                  {(fileDetails.size / 1024).toFixed(2)} KB
+                </span>
+                <span>•</span>
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  {fileDetails.mimetype}
+                </span>
+                <div className="mt-4">
+                  <FileActions fileDetails={fileDetails} documentId={params.document_id} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
     if (mimetype === "text/plain" || (mimetype === "application/octet-stream" && fileDetails.name.endsWith(".go"))) {
-      return (
-        <TextEditor documentId={params.document_id} initialContent={fileContent || ""} fileName={fileDetails.name} />
+      return renderFileDetails(
+        <TextEditor documentId={params.document_id} initialContent={fileContent || ""} fileName={fileDetails.name} />,
       );
     }
 
     if (fileDetails.isImage) {
-      return (
-        <div className="flex justify-center p-8">
-          {imageContent && (
-            <img src={imageContent} alt={fileDetails.name} className="max-w-full h-auto rounded-lg shadow-lg" />
-          )}
-        </div>
+      return renderFileDetails(
+        <img src={imageContent!} alt={fileDetails.name} className="w-full h-96 object-contain" />,
       );
     }
 
     if (mimetype === "application/pdf") {
-      return <PdfViewer url={fileDetails.downloadUrl} fileName={fileDetails.name} />;
+      return renderFileDetails(<PdfViewer url={fileDetails.downloadUrl} fileName={fileDetails.name} />);
     }
 
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <p className="mb-4">This file type ({mimetype}) cannot be previewed.</p>
-        <a
-          href={fileDetails.downloadUrl}
-          download={fileDetails.name}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Download File
-        </a>
+        <Button variant="default" asChild>
+          <a href={fileDetails.downloadUrl} download={fileDetails.name}>
+            <Download className="mr-2 h-4 w-4" />
+            Download File
+          </a>
+        </Button>
       </div>
     );
   };
 
-  return <div className="min-h-screen bg-gray-50">{renderContent()}</div>;
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex m-4   justify-start items-center">
+        <Button variant="outline" size="lg" asChild>
+          <Link href="/">
+            <BackwardIcon className="h-5 w-5 mr-2" /> Back
+          </Link>
+        </Button>
+      </div>
+      {renderContent()}
+    </div>
+  );
 }
 
 // Update TextEditor to accept initial content
@@ -215,9 +272,9 @@ function TextEditor({
   };
 
   return (
-    <div className="container mx-auto max-w-4xl bg-[#1e1e1e] shadow-md rounded-lg p-8 my-10">
+    <div className="container mx-auto max-w-6xl bg-[#1e1e1e] shadow-md rounded-lg p-8 my-10">
       <header className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-white">Code Editor</h1>
+        <h1 className="text-2xl font-bold mx-2 text-white">Code Editor</h1>
         <div className="flex items-center gap-4">
           <Button onClick={handleSave} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white">
             {isSaving ? (
@@ -250,3 +307,61 @@ function TextEditor({
     </div>
   );
 }
+
+// Add new function to handle file actions
+const FileActions = ({ fileDetails, documentId }: { fileDetails: FileDetails; documentId: string }) => {
+  const { toast } = useToast();
+
+  const handleDownload = () => {
+    window.open(fileDetails.downloadUrl, "_blank");
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.share({
+        title: fileDetails.name,
+        url: window.location.href,
+      });
+    } catch (err) {
+      // Fallback to copying link if Web Share API is not supported
+      await navigator.clipboard.writeText(window.location.href);
+      toast({
+        description: "URL copied to clipboard!",
+      });
+    }
+  };
+
+  const handleWalrusShare = async () => {
+    // Generate and copy Walrus-specific sharing link
+    const walrusLink = `https://aggregator.walrus-testnet.walrus.space/document/${documentId}`;
+    await navigator.clipboard.writeText(walrusLink);
+    toast({
+      description: "Walrus link copied to clipboard!",
+    });
+  };
+
+  return (
+    <div className="relative flex gap-2">
+      <Button variant="outline" size="lg" onClick={handleDownload} className="flex items-center gap-2 px-4 py-2 ">
+        <Download className="h-5 w-5" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="lg" className="flex items-center ">
+            <Share2 className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={handleShare} className="py-3 cursor-pointer">
+            <Share2 className="mr-3 h-5 w-5" />
+            Share Link
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleWalrusShare} className="py-3 cursor-pointer">
+            <LinkIcon className="mr-3 h-5 w-5" />
+            Copy Walrus Link
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+};
