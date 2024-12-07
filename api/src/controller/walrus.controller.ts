@@ -24,7 +24,7 @@ export const createFolder = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
     const { name, parentObjectId } = req.body;
     console.log("parentObjectId", parentObjectId);
-    if (!parentObjectId) {
+    if (!parentObjectId || parentObjectId === "null") {
       const rootFolder = await File.findOne({
         userId: req.user._id.toString(),
         isFile: false,
@@ -69,23 +69,53 @@ export const createFolder = () =>
 
 export const addObjectToWalrus = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
+    console.log("Starting file upload...");
     const user = req.user;
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      console.log("No files found in request");
       return res.status(400).json({
         status: "error",
         message: "No file uploaded",
       });
     }
 
-    const parentFolderId = req.body.parentFolderId || null;
-    const parentFolder = await File.findById(parentFolderId);
+    let parentFolder = null;
+    const parentFolderId = req.body.parentFolderId;
+    console.log("Parent folder ID:", parentFolderId);
+
+    if (parentFolderId !== null && parentFolderId !== "null") {
+      console.log("Searching for parent folder by ID:", parentFolderId);
+      parentFolder = await File.findById(parentFolderId);
+      console.log("Found parent folder by ID:", parentFolder);
+      if (!parentFolder) {
+        return res.status(404).json({
+          status: "error",
+          message: "Parent folder not found",
+        });
+      }
+    } else {
+      parentFolder = await File.findOne({
+        userId: user._id.toString(),
+        path: "/",
+        isFile: false,
+      });
+      console.log("Found root folder:", parentFolder);
+    }
+
     try {
       const uploadedFile = req.files[0];
-      const filepath = parentFolderId
+      console.log("File to upload:", {
+        name: uploadedFile.originalname,
+        size: uploadedFile.size,
+        type: uploadedFile.mimetype,
+      });
+
+      const filepath = parentFolder
         ? `${parentFolder.path}/${uploadedFile.originalname}`
         : `/${uploadedFile.originalname}`;
-      const fileBuffer = uploadedFile.buffer;
+      console.log("Generated filepath:", filepath);
 
+      const fileBuffer = uploadedFile.buffer;
       const metadata = {
         filename: uploadedFile.originalname,
         mimetype: uploadedFile.mimetype,
@@ -93,14 +123,29 @@ export const addObjectToWalrus = () =>
         uploadedAt: new Date().toISOString(),
       };
 
+      // Handle file content based on type
+      let fileContent;
+      if (uploadedFile.mimetype.startsWith("image/")) {
+        // For images, convert to base64
+        fileContent = `data:${
+          uploadedFile.mimetype
+        };base64,${fileBuffer.toString("base64")}`;
+      } else {
+        // For other files, use buffer directly
+        fileContent = fileBuffer;
+      }
+
       // Upload to Walrus
       const uploadResult = await axios.put(
         `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
-        fileBuffer,
+        fileContent,
         {
           headers: {
-            "Content-Type": "application/octet-stream",
+            "Content-Type": metadata.mimetype,
             "X-File-Metadata": JSON.stringify(metadata),
+            ...(uploadedFile.mimetype.startsWith("image/") && {
+              "Content-Transfer-Encoding": "base64",
+            }),
           },
         }
       );
@@ -111,18 +156,27 @@ export const addObjectToWalrus = () =>
         name: uploadedFile.originalname,
         path: filepath,
         isFile: true,
-        parent: parentFolderId,
+        parent: parentFolder?._id || null,
         children: [],
         blobId: uploadResult.data.newlyCreated.blobObject.blobId,
         walrusId: uploadResult.data.newlyCreated.blobObject.id,
         metadata,
       };
 
-      const newFile = await File.create(fileData);
+      console.log("Creating file record with data:", {
+        userId: user._id.toString(),
+        name: uploadedFile.originalname,
+        path: filepath,
+        parent: parentFolder?._id || null,
+      });
 
-      // Update parent folder if exists
-      if (parentFolderId) {
-        await File.findByIdAndUpdate(parentFolderId, {
+      const newFile = await File.create(fileData);
+      console.log("Created new file:", newFile);
+
+      // Update parent folder
+      if (parentFolder) {
+        console.log("Updating parent folder children:", parentFolder._id);
+        await File.findByIdAndUpdate(parentFolder._id, {
           $push: { children: newFile._id },
         });
       }
@@ -248,6 +302,9 @@ export const getFolderContents = () =>
         ...node,
         _id: node._id.toString(),
         parent: node.parent?.toString() || null,
+        downloadUrl: node.isFile
+          ? `${process.env.WALRUS_AGGREGATOR_URL}/v1/${node.blobId}`
+          : null,
       };
 
       if (Array.isArray(node.children)) {
@@ -796,7 +853,7 @@ export const getFile = () =>
     const { walrusId } = req.params;
 
     const file = await File.findOne({
-      walrusId,
+      _id: walrusId,
       isFile: true,
       isDeleted: false,
     });
@@ -805,20 +862,21 @@ export const getFile = () =>
       return res.status(404).json({ message: "File not found" });
     }
 
-    const fileStream = await axios.get(
-      `${process.env.WALRUS_AGGREGATOR_URL}/v1/${file.blobId}`,
-      {
-        responseType: "stream",
-      }
-    );
+    // Generate download URL
+    const downloadUrl = `${process.env.WALRUS_AGGREGATOR_URL}/v1/${file.blobId}`;
 
-    // res.setHeader("Content-Type", file.metadata.mimetype);
-    // res.setHeader(
-    //   "Content-Disposition",
-    //   `inline; filename="${encodeURIComponent(file.metadata.filename)}"`
-    // );
+    const fileData = {
+      metadata: file.metadata,
+      name: file.name,
+      mimetype: file.metadata.mimetype,
+      size: file.metadata.size,
+      downloadUrl,
+    };
 
-    fileStream.data.pipe(res);
+    return res.status(200).json({
+      status: "success",
+      data: fileData,
+    });
   });
 
 export const initializeUserFileStructure = async (userId: string) => {
@@ -852,3 +910,98 @@ export const initializeUserFileStructure = async (userId: string) => {
     throw error;
   }
 };
+
+export const updateFileContent = () =>
+  catchAsync(async (req: IBaseRequest, res: Response) => {
+    console.log("Starting file content update...");
+    const { fileId } = req.params;
+    const user = req.user;
+
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "No file content provided",
+      });
+    }
+
+    // Find existing file
+    const existingFile = await File.findOne({
+      _id: fileId,
+      userId: user._id.toString(),
+      isFile: true,
+      isDeleted: false,
+    });
+
+    if (!existingFile) {
+      return res.status(404).json({
+        status: "error",
+        message: "File not found",
+      });
+    }
+
+    try {
+      const newContent = req.files[0];
+      const fileBuffer = newContent.buffer;
+
+      // Keep original metadata but update size
+      const metadata = {
+        ...existingFile.metadata,
+        size: newContent.size,
+        uploadedAt: new Date().toISOString(),
+      };
+
+      // Handle file content based on type
+      let fileContent;
+      if (existingFile.metadata.mimetype.startsWith("image/")) {
+        fileContent = `data:${
+          existingFile.metadata.mimetype
+        };base64,${fileBuffer.toString("base64")}`;
+      } else {
+        fileContent = fileBuffer;
+      }
+
+      // Upload new content to Walrus
+      const uploadResult = await axios.put(
+        `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
+        fileContent,
+        {
+          headers: {
+            "Content-Type": existingFile.metadata.mimetype,
+            "X-File-Metadata": JSON.stringify(metadata),
+            ...(existingFile.metadata.mimetype.startsWith("image/") && {
+              "Content-Transfer-Encoding": "base64",
+            }),
+          },
+        }
+      );
+
+      // Update file record with new Walrus IDs
+      const updatedFile = await File.findByIdAndUpdate(
+        fileId,
+        {
+          $set: {
+            blobId: uploadResult.data.newlyCreated.blobObject.blobId,
+            walrusId: uploadResult.data.newlyCreated.blobObject.id,
+            metadata,
+          },
+        },
+        { new: true }
+      );
+
+      return res.status(200).json({
+        status: "success",
+        message: "File content updated successfully",
+        data: {
+          file: updatedFile,
+          walrusResponse: uploadResult.data,
+        },
+      });
+    } catch (error) {
+      console.error("Update error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error updating file content",
+        error: error.message,
+      });
+    }
+  });

@@ -45,6 +45,7 @@ const fileSchema = new Schema<IWalrusNode>(
       {
         type: Schema.Types.ObjectId,
         ref: "File",
+        default: [],
       },
     ],
     collaborators: [collaboratorSchema],

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Meteors } from "@/components/ui/meteors";
 import type { NextPage } from "next";
 import { OktoContextType, useOkto } from "okto-sdk-react";
-import { DocumentTextIcon, LockClosedIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { ComputerDesktopIcon, DocumentTextIcon, FolderIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import WalrusIcon from "~~/assets/walrus.png";
 import AnimatedGradientText from "~~/components/ui/animated-gradient-text";
 import Globe from "~~/components/ui/globe";
 
@@ -39,12 +41,11 @@ const Home: NextPage = () => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32">
           <div className="text-center animate-fade-in space-y-8">
             <div className="flex items-center justify-center gap-4">
-              <AnimatedGradientText className="text-7xl font-bold">
-                ThreeDrive{" "}
-                <img
-                  src="https://cdn-icons-png.flaticon.com/128/5968/5968523.png"
-                  alt="ThreeDrive logo"
-                  className="h-16 ml-4 mt-2 w-16"
+              <AnimatedGradientText className="text-7xl font-bold relative">
+                ThreeDrive <Image 
+                  src={WalrusIcon} 
+                  className="absolute -top-8 right-0 h-16 w-auto ml-4" 
+                  alt="ThreeDrive logo" 
                 />
               </AnimatedGradientText>
             </div>
@@ -73,23 +74,33 @@ const Home: NextPage = () => {
             <DocumentTextIcon className="h-12 w-12 mb-4 text-primary" />
             <h2 className="text-xl font-semibold mb-4">Real-time Collaboration</h2>
             <p className="text-base-content/70">
-              Edit documents simultaneously with your team, with changes synced instantly on-chain
+              Work together seamlessly with multiple users editing documents simultaneously in real-time
             </p>
           </div>
 
           <div className="group relative overflow-hidden rounded-2xl bg-base-100 p-8 hover:shadow-xl transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <UserGroupIcon className="h-12 w-12 mb-4 text-primary" />
-            <h2 className="text-xl font-semibold mb-4">Decentralized Access</h2>
-            <p className="text-base-content/70">Control document access with wallet addresses and smart contracts</p>
+            <FolderIcon className="h-12 w-12 mb-4 text-primary" />
+            <h2 className="text-xl font-semibold mb-4">Google Drive Experience</h2>
+            <p className="text-base-content/70">
+              Familiar interface for file management, and organization just like Google Drive
+            </p>
           </div>
 
           <div className="group relative overflow-hidden rounded-2xl bg-base-100 p-8 hover:shadow-xl transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <LockClosedIcon className="h-12 w-12 mb-4 text-primary" />
-            <h2 className="text-xl font-semibold mb-4">Immutable History</h2>
+            <ComputerDesktopIcon className="h-12 w-12 mb-4 text-primary" />
+            <h2 className="text-xl font-semibold mb-4">
+              <a href="https://www.npmjs.com/package/@hibernuts/walrus-sdk" target="_blank">
+                Walrus SDK Integration
+              </a>
+            </h2>
             <p className="text-base-content/70">
-              Every revision is permanently stored on the blockchain for complete transparency
+              Created our own{" "}
+              <a href="https://www.npmjs.com/package/@hibernuts/walrus-sdk" target="_blank">
+                Walrus SDK
+              </a>{" "}
+              for easier integration with existing applications
             </p>
           </div>
         </div>
