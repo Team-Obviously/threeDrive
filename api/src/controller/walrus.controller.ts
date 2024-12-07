@@ -149,7 +149,7 @@ export const addObjectToWalrus = () =>
 
       // Upload to Walrus
       const uploadResult = await axios.put(
-        `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
+        `${process.env.WALRUS_PUBLISHER_URL}/v1/store`,
         fileContent,
         {
           headers: {
@@ -809,7 +809,7 @@ const handleFileUpload = async (
   };
 
   const uploadResult = await axios.put(
-    `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
+    `${process.env.WALRUS_PUBLISHER_URL}/v1/store`,
     fileBuffer,
     {
       headers: {
@@ -1005,7 +1005,7 @@ export const updateFileContent = () =>
 
       // Upload new content to Walrus
       const uploadResult = await axios.put(
-        `${process.env.WALRUS_PUBLISHER_URL}/v1/store?epochs=5&deletable=true`,
+        `${process.env.WALRUS_PUBLISHER_URL}/v1/store`,
         fileContent,
         {
           headers: {

@@ -176,6 +176,7 @@ export default function FolderPage() {
         });
         setNewFolderName("");
       }
+      fetchFolder();
     } catch (err) {
       toast({
         title: "Error creating folder",
