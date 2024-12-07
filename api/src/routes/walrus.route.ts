@@ -4,7 +4,6 @@ import {
   getObjectFromWalrus,
   getFolderContents,
   searchFiles,
-  deleteFile,
   getAllUserFiles,
   addCollaborator,
   removeCollaborator,
@@ -13,6 +12,7 @@ import {
   moveNode,
   uploadFile,
   getFile,
+  deleteNode,
 } from "../controller/walrus.controller";
 import multer from "multer";
 
@@ -26,7 +26,8 @@ router.get("/file/:walrusId", getObjectFromWalrus());
 router.get("/folder", getFolderContents());
 router.get("/search", searchFiles());
 router.get("/files/all", getAllUserFiles());
-router.delete("/file/:walrusId", deleteFile());
+router.delete("/file/:walrusId", deleteNode());
+router.delete("/node/:id", deleteNode());
 
 router.post("/collaborator/:id", addCollaborator());
 router.delete("/collaborator/:id/:userId", removeCollaborator());

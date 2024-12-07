@@ -242,47 +242,87 @@ export const searchFiles = () =>
     }
   });
 
-export const deleteFile = () =>
-  catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
-    const { walrusId } = req.params;
+export const deleteNode = () =>
+  catchAsync(async (req: IBaseRequest, res: Response) => {
+    const { id } = req.params;
     const userId = req.user._id.toString();
 
-    try {
-      const file = await File.findOne({
-        walrusId,
-        userId,
-        isDeleted: false,
-      });
+    const node = await File.findOne({
+      _id: id,
+      userId,
+      isDeleted: false,
+    });
 
-      if (!file) {
-        return res.status(404).json({
-          status: "error",
-          message: "File not found",
+    if (!node) {
+      return res.status(404).json({
+        status: "error",
+        message: "File or folder not found",
+      });
+    }
+
+    try {
+      if (!node.isFile) {
+        await markFolderAndContentsAsDeleted(node._id);
+
+        return res.status(200).json({
+          status: "success",
+          message: "Folder and its contents deleted successfully",
         });
       }
 
-      if (file.isFile) {
-        await File.updateMany(
-          {
-            userId,
-            path: { $regex: `^${file.path}` },
-            isDeleted: false,
-          },
-          { isDeleted: true }
-        );
-      } else {
-        file.isDeleted = true;
-        await file.save();
+      // If it's a file, just mark it as deleted
+      node.isDeleted = true;
+      await node.save();
+
+      // Remove from parent's children array
+      if (node.parent) {
+        await File.findByIdAndUpdate(node.parent, {
+          $pull: { children: node._id },
+        });
       }
 
       return res.status(200).json({
         status: "success",
-        message: `${file.isFile ? "File" : "Folder"} deleted successfully`,
+        message: "File deleted successfully",
       });
     } catch (error) {
-      return next(error);
+      console.error("Delete error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error deleting file/folder",
+      });
     }
   });
+
+// Helper function to recursively mark folder and its contents as deleted
+const markFolderAndContentsAsDeleted = async (folderId: ObjectId) => {
+  const folder = await File.findById(folderId);
+  if (!folder) return;
+
+  // Mark the folder as deleted
+  folder.isDeleted = true;
+  await folder.save();
+
+  // Remove from parent's children array
+  if (folder.parent) {
+    await File.findByIdAndUpdate(folder.parent, {
+      $pull: { children: folder._id },
+    });
+  }
+
+  // Recursively mark all children as deleted
+  for (const childId of folder.children) {
+    const child = await File.findById(childId);
+    if (child) {
+      if (child.isFile) {
+        child.isDeleted = true;
+        await child.save();
+      } else {
+        await markFolderAndContentsAsDeleted(child._id);
+      }
+    }
+  }
+};
 
 export const getAllUserFiles = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
