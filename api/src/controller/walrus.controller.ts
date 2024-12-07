@@ -228,7 +228,17 @@ export const getObjectFromWalrus = () =>
 
 export const getFolderContents = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
-    const { id } = req.query;
+    let { id } = req.query;
+
+    if (!id) {
+      const rootFolder = await File.findOne({
+        userId: req.user._id.toString(),
+        isFile: false,
+        isDeleted: false,
+        parent: null,
+      });
+      id = rootFolder?._id.toString();
+    }
 
     const folder = await File.findById(id)
       .populate({
