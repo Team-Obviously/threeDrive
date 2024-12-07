@@ -7,6 +7,65 @@ import { IBaseRequest } from "../Interfaces/utils/utils.interfaces";
 import User from "../models/user.model";
 import { Types, ObjectId } from "mongoose";
 
+interface TreeNode {
+  metadata: {
+    filename: string;
+    mimetype: string;
+    size: number;
+    uploadedAt: string;
+  };
+  _id: string;
+  name: string;
+  isFile: boolean;
+  children: TreeNode[];
+}
+
+export const createFolder = () =>
+  catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
+    const { name, parentObjectId } = req.body;
+
+    if (!parentObjectId) {
+      const rootFolder = await File.findOne({
+        userId: req.user._id.toString(),
+        isFile: false,
+        parent: null,
+      });
+      const newFolder = await File.create({
+        userId: req.user._id.toString(),
+        name,
+        path: "/" + name,
+        isFile: false,
+        parent: rootFolder?._id,
+        children: [],
+      });
+      if (rootFolder) {
+        await File.findByIdAndUpdate(rootFolder._id, {
+          $push: { children: newFolder._id },
+        });
+      }
+    } else {
+      const parent = await File.findById(parentObjectId);
+      const newFolder = await File.create({
+        userId: req.user._id.toString(),
+        name,
+        path: parent.path + "/" + name,
+        isFile: false,
+        parent: parentObjectId,
+        children: [],
+      });
+      if (parent) {
+        await File.findByIdAndUpdate(parent._id, {
+          $push: { children: newFolder._id },
+        });
+      }
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "Folder created successfully",
+    });
+  });
+
 export const addObjectToWalrus = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
     const user = req.user;
@@ -16,6 +75,10 @@ export const addObjectToWalrus = () =>
         message: "No file uploaded",
       });
     }
+
+    const parentFolderId = req.body.parentFolderId;
+
+    const parentFolder = await File.findById(parentFolderId);
 
     try {
       const uploadedFile = req.files[0];
@@ -42,54 +105,51 @@ export const addObjectToWalrus = () =>
           },
         }
       );
-
-      const folders = filepath.split("/").filter(Boolean);
-      let currentPath = "";
       let currentParentId: ObjectId | null = null;
 
-      for (const folder of folders.slice(0, -1)) {
-        currentPath += `/${folder}`;
-        const folderData: IWalrusNode = {
-          userId: user._id.toString(),
-          name: folder,
-          path: currentPath,
-          isFile: false,
-          parent: currentParentId,
-          children: [],
-          metadata: {
-            filename: folder,
-            mimetype: "folder",
-            size: 0,
-            uploadedAt: new Date().toISOString(),
-          },
-        };
+      // for (const folder of folders.slice(0, -1)) {
+      //   currentPath += `/${folder}`;
+      //   const folderData: IWalrusNode = {
+      //     userId: user._id.toString(),
+      //     name: folder,
+      //     path: currentPath,
+      //     isFile: false,
+      //     parent: currentParentId,
+      //     children: [],
+      //     metadata: {
+      //       filename: folder,
+      //       mimetype: "folder",
+      //       size: 0,
+      //       uploadedAt: new Date().toISOString(),
+      //     },
+      //   };
 
-        const existingFolder = await File.findOne({
-          userId: user._id.toString(),
-          path: currentPath,
-          isFile: false,
-          isDeleted: false,
-        });
+      //   const existingFolder = await File.findOne({
+      //     userId: user._id.toString(),
+      //     path: currentPath,
+      //     isFile: false,
+      //     isDeleted: false,
+      //   });
 
-        if (existingFolder) {
-          currentParentId = existingFolder._id;
-        } else {
-          const newFolder = await File.create(folderData);
-          if (currentParentId) {
-            await File.findByIdAndUpdate(currentParentId, {
-              $push: { children: newFolder._id },
-            });
-          }
-          currentParentId = newFolder._id;
-        }
-      }
+      //   if (existingFolder) {
+      //     currentParentId = existingFolder._id;
+      //   } else {
+      //     const newFolder = await File.create(folderData);
+      //     if (currentParentId) {
+      //       await File.findByIdAndUpdate(currentParentId, {
+      //         $push: { children: newFolder._id },
+      //       });
+      //     }
+      //     currentParentId = newFolder._id;
+      //   }
+      // }
 
       const fileData: IWalrusNode = {
         userId: user._id.toString(),
         name: uploadedFile.originalname,
         path: filepath,
         isFile: true,
-        parent: currentParentId,
+        parent: parentFolderId,
         children: [],
         blobId: uploadResult.data.newlyCreated.blobObject.blobId,
         walrusId: uploadResult.data.newlyCreated.blobObject.id,
@@ -102,12 +162,12 @@ export const addObjectToWalrus = () =>
       };
 
       const newFile = await File.create(fileData);
-      if (currentParentId) {
-        await File.findByIdAndUpdate(currentParentId, {
+
+      if (parentFolder) {
+        await File.findByIdAndUpdate(parentFolder._id, {
           $push: { children: newFile._id },
         });
       }
-
       return res.status(200).json({
         status: "success",
         message: "File uploaded successfully",
@@ -168,52 +228,56 @@ export const getObjectFromWalrus = () =>
 
 export const getFolderContents = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
-    const { path = "/" } = req.query;
-    const userId = req.user._id.toString();
+    const { id } = req.query;
 
-    try {
-      const contents = await File.find({
-        userId,
-        parentFolder: path,
-        isDeleted: false,
-      }).sort({ isFolder: -1, "metadata.filename": 1 });
-
-      const currentFolder =
-        path === "/"
-          ? null
-          : await File.findOne({
-              userId,
-              path,
-              isFolder: true,
-              isDeleted: false,
-            });
-
-      const breadcrumb =
-        path === "/"
-          ? [{ name: "Root", path: "/" }]
-          : [
-              { name: "Root", path: "/" },
-              ...String(path)
-                .split("/")
-                .filter(Boolean)
-                .map((folder, index, arr) => ({
-                  name: folder,
-                  path: "/" + arr.slice(0, index + 1).join("/"),
-                })),
-            ];
-
-      return res.status(200).json({
-        status: "success",
-        data: {
-          currentFolder,
-          contents,
-          breadcrumb,
-          currentPath: path,
+    const folder = await File.findById(id)
+      .populate({
+        path: "children",
+        match: { isDeleted: false },
+        select: "name isFile metadata children path parent",
+        populate: {
+          path: "children",
+          match: { isDeleted: false },
+          select: "name isFile metadata children path parent",
+          populate: {
+            path: "children",
+            match: { isDeleted: false },
+            select: "name isFile metadata children path parent",
+          },
         },
+      })
+      .lean();
+
+    if (!folder) {
+      return res.status(404).json({
+        status: "error",
+        message: "Folder not found",
       });
-    } catch (error) {
-      return next(error);
     }
+
+    // Function to convert ObjectIds to strings recursively
+    const convertIds = (node: any) => {
+      if (!node) return node;
+
+      const converted = {
+        ...node,
+        _id: node._id.toString(),
+        parent: node.parent?.toString() || null,
+      };
+
+      if (Array.isArray(node.children)) {
+        converted.children = node.children.map(convertIds);
+      }
+
+      return converted;
+    };
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        folder: convertIds(folder),
+      },
+    });
   });
 
 export const searchFiles = () =>
@@ -484,92 +548,107 @@ export const getCollaborators = () =>
 export const getTreeStructure = () =>
   catchAsync(async (req: IBaseRequest, res: Response) => {
     const userId = req.user._id.toString();
-    const { folderId = null } = req.query;
+    const { path = "/" } = req.query;
 
     try {
-      const query = {
-        userId,
-        isDeleted: false,
-        ...(folderId
-          ? { parent: new Types.ObjectId(folderId as string) }
-          : { parent: null }),
-      };
-
-      const nodes = await File.find(query)
-        .populate({
-          path: "children",
-          match: { isDeleted: false, userId },
-          select: "name isFile metadata children userId",
-        })
-        .select("name isFile metadata children userId")
-        .lean();
-
-      const filteredNodes = nodes.map((node) => ({
-        ...node,
-        children:
-          node.children?.filter((child: any) => child.toString() === userId) ||
-          [],
-      }));
-
-      if (filteredNodes.length === 0) {
-        const rootFolder = await File.findOne({
+      // Get all items in current path
+      const [folders, files] = await Promise.all([
+        // Get folders in current path
+        File.find({
           userId,
-          path: "/",
-          isFile: false,
           isDeleted: false,
-        });
+          isFile: false,
+          path: path as string,
+        }).lean(),
+        // Get files in current path
+        File.find({
+          userId,
+          isDeleted: false,
+          isFile: true,
+          path: path as string,
+        }).lean(),
+      ]);
 
-        if (!rootFolder) {
-          const newRoot: IWalrusNode = {
-            userId,
-            name: "Root",
-            path: "/",
-            isFile: false,
-            parent: null,
-            children: [],
-            metadata: {
-              filename: "Root",
-              mimetype: "folder",
-              size: 0,
-              uploadedAt: new Date().toISOString(),
-            },
-          };
-          const createdRoot = await File.create(newRoot);
-          return res.status(200).json({
-            status: "success",
-            data: [createdRoot],
-          });
-        }
+      const formattedNodes = [
+        ...folders.map((node) => ({
+          metadata: node.metadata,
+          _id: node._id.toString(),
+          name: node.name,
+          isFile: false,
+          children: [] as TreeNode[],
+        })),
+        ...files.map((node) => ({
+          metadata: node.metadata,
+          _id: node._id.toString(),
+          name: node.name,
+          isFile: true,
+          children: [] as TreeNode[],
+        })),
+      ];
 
+      if (formattedNodes.length === 0) {
         return res.status(200).json({
           status: "success",
-          data: [rootFolder],
+          data: {
+            currentPath: path,
+            folders: [],
+            files: [],
+            tree: [
+              {
+                metadata: {
+                  filename: "Root",
+                  mimetype: "folder",
+                  size: 0,
+                  uploadedAt: new Date().toISOString(),
+                },
+                _id: "root",
+                name: "Root",
+                isFile: false,
+                children: [] as TreeNode[],
+              },
+            ],
+          },
         });
       }
 
       return res.status(200).json({
         status: "success",
-        data: filteredNodes,
+        data: {
+          currentPath: path,
+          folders: folders.map((f) => ({
+            ...f,
+            _id: f._id.toString(),
+          })),
+          files: files.map((f) => ({
+            ...f,
+            _id: f._id.toString(),
+          })),
+          tree: formattedNodes,
+        },
       });
     } catch (error) {
       console.error("Error getting tree structure:", error);
-
       return res.status(200).json({
         status: "success",
-        data: [
-          {
-            name: "Root",
-            path: "/",
-            isFile: false,
-            children: [],
-            metadata: {
-              filename: "Root",
-              mimetype: "folder",
-              size: 0,
-              uploadedAt: new Date().toISOString(),
+        data: {
+          currentPath: "/",
+          folders: [],
+          files: [],
+          tree: [
+            {
+              metadata: {
+                filename: "Root",
+                mimetype: "folder",
+                size: 0,
+                uploadedAt: new Date().toISOString(),
+              },
+              _id: "root",
+              name: "Root",
+              isFile: false,
+              children: [] as TreeNode[],
             },
-          },
-        ],
+          ],
+        },
       });
     }
   });

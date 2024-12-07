@@ -13,6 +13,7 @@ import {
   uploadFile,
   getFile,
   deleteNode,
+  createFolder,
 } from "../controller/walrus.controller";
 import multer from "multer";
 
@@ -22,6 +23,7 @@ const upload = multer({
 });
 
 router.post("/", upload.any(), addObjectToWalrus());
+router.post("/folder", createFolder());
 router.get("/file/:walrusId", getObjectFromWalrus());
 router.get("/folder", getFolderContents());
 router.get("/search", searchFiles());

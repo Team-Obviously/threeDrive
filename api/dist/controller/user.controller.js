@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.addUser = void 0;
 const utils_1 = require("../utils/utils");
 const user_model_1 = __importDefault(require("../models/user.model"));
+const walrus_controller_1 = require("./walrus.controller");
 const addUser = () => (0, utils_1.catchAsync)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { emailId } = req.body;
@@ -27,7 +28,7 @@ const addUser = () => (0, utils_1.catchAsync)((req, res, next) => __awaiter(void
             });
         }
         user = yield user_model_1.default.create(req.body);
-        // await initializeUserFileStructure(user._id.toString());
+        yield (0, walrus_controller_1.initializeUserFileStructure)(user._id.toString());
         return res.status(201).json({
             status: "success",
             message: "User created successfully",

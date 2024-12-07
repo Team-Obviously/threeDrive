@@ -20,7 +20,7 @@ export const addUser = () =>
 
       user = await Users.create(req.body);
 
-      // await initializeUserFileStructure(user._id.toString());
+      await initializeUserFileStructure(user._id.toString());
 
       return res.status(201).json({
         status: "success",

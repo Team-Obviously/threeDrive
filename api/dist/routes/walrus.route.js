@@ -11,6 +11,7 @@ const upload = (0, multer_1.default)({
     storage: multer_1.default.memoryStorage(),
 });
 router.post("/", upload.any(), (0, walrus_controller_1.addObjectToWalrus)());
+router.post("/folder", (0, walrus_controller_1.createFolder)());
 router.get("/file/:walrusId", (0, walrus_controller_1.getObjectFromWalrus)());
 router.get("/folder", (0, walrus_controller_1.getFolderContents)());
 router.get("/search", (0, walrus_controller_1.searchFiles)());

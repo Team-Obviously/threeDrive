@@ -50,18 +50,20 @@ const fileSchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
-    // File-specific properties
+    // Only required for files, not folders
     blobId: {
         type: String,
         required: function () {
             return this.isFile;
         },
+        sparse: true, // Allow null for folders
     },
     walrusId: {
         type: String,
         required: function () {
             return this.isFile;
         },
+        sparse: true, // Allow null for folders
     },
     metadata: {
         filename: String,
@@ -76,6 +78,7 @@ const fileSchema = new mongoose_1.Schema({
 fileSchema.index({ userId: 1, path: 1 });
 fileSchema.index({ parent: 1 });
 fileSchema.index({ isDeleted: 1 });
+fileSchema.index({ walrusId: 1 }, { sparse: true }); // Make sparse index
 fileSchema.index({ "collaborators.userId": 1 });
 exports.default = (0, mongoose_1.model)("File", fileSchema);
 //# sourceMappingURL=file.model.js.map

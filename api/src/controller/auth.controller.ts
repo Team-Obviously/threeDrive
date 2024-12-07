@@ -2,7 +2,6 @@ import Users from "../models/user.model";
 import { Response, Request } from "express";
 import { sign } from "jsonwebtoken";
 import passport_jwt from "passport-jwt";
-import { initializeUserFileStructure } from "./walrus.controller";
 
 export const signup = (req: Request, res: Response) => {
   const {

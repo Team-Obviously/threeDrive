@@ -3,7 +3,8 @@
 import { ReactNode } from "react";
 import { ClientSideSuspense, LiveblocksProvider, RoomProvider } from "@liveblocks/react/suspense";
 
-export function Room({ children, document_id }: { children: ReactNode, document_id: string }) {
+export function Room({ children, document_id }: { children: ReactNode; document_id: string }) {
+  console.log(document_id);
   return (
     <LiveblocksProvider publicApiKey={"pk_prod_igoTwEdw5Hkf0QnLTL03WyV2F8pAHFJuIfxyQzCzGIx4N24Oyd8n9fcBcoavqw7a"}>
       <RoomProvider id={document_id}>
