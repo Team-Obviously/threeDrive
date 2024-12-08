@@ -15,6 +15,7 @@ import {
   deleteNode,
   createFolder,
   updateFileContent,
+  getAllSharedWithMe,
 } from "../controller/walrus.controller";
 import multer from "multer";
 
@@ -42,5 +43,7 @@ router.patch("/move/:id", moveNode());
 router.post("/upload", upload.any(), uploadFile());
 router.get("/file/:walrusId/view", getFile());
 router.patch("/file/:fileId/content", upload.any(), updateFileContent());
+
+router.get("/shared-with-me", getAllSharedWithMe());
 
 export default router;

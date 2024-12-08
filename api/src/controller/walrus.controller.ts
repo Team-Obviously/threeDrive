@@ -488,57 +488,91 @@ export const getAllUserFiles = () =>
 
 export const addCollaborator = () =>
   catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
+    console.log("Starting add collaborator process...");
     const { id } = req.params;
     const { emailId } = req.body;
     const requestingUserId = req.user?._id.toString();
-    const item = await File.findOne({ _id: id, isDeleted: { $ne: true } });
+
+    console.log("Request details:", {
+      fileId: id,
+      emailToAdd: emailId,
+      requestingUser: requestingUserId,
+    });
+
+    // Find the item (file/folder)
+    const item = await File.findOne({ _id: id });
+    console.log("Found item:", item);
+
     if (!item) {
+      console.log("Item not found with ID:", id);
       return res.status(404).json({ message: "File or folder not found" });
     }
 
-    const userToAdd = await User.findOne({ email: emailId });
-    const documentLink = `${process.env.REACT_APP_BASE_URL}/document/${id}`;
+    // Find user to add
+    const userToAdd = await User.findOne({ emailId });
+    console.log("Found user to add:", userToAdd);
 
-    await sendEmail({
-      to: emailId,
-      subject: `You've been added as a collaborator to ${item.name}`,
-      text: `
-        You have been added as a collaborator to ${
-          item.isFile ? "file" : "folder"
-        } "${item.name}" by ${requestingUserId}.
-        
-        You can access it here: ${documentLink}
-        
-        Best regards,
-        Your ThreeDrive Team
-      `,
-    });
+    // Generate and log document link
+    const documentLink = `${process.env.REACT_APP_BASE_URL}/document/${id}`;
+    console.log("Generated document link:", documentLink);
+
+    // Send email
+    console.log("Sending email to:", emailId);
+    try {
+      await sendEmail({
+        to: emailId,
+        subject: `You've been added as a collaborator to ${item.name}`,
+        text: `
+          You have been added as a collaborator to ${
+            item.isFile ? "file" : "folder"
+          } "${item.name}" by ${requestingUserId}.
+          
+          You can access it here: ${documentLink}
+          
+          Best regards,
+          Your ThreeDrive Team
+        `,
+      });
+      console.log("Email sent successfully");
+    } catch (error) {
+      console.error("Error sending email:", error);
+    }
+
     if (!userToAdd) {
+      console.log("User not found with email:", emailId);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if user is owner
+    // Check ownership
     if (item.userId.toString() !== requestingUserId) {
+      console.log("Permission denied. Owner check failed:", {
+        itemOwner: item.userId,
+        requestingUser: requestingUserId,
+      });
       return res
         .status(403)
         .json({ message: "Only owner can add collaborators" });
     }
 
-    // Check if user is already a collaborator
-    if (
-      item.collaborators?.some(
-        (c: ICollaborator) => c.userId.toString() === userToAdd._id.toString()
-      )
-    ) {
+    // Check existing collaborator
+    const isExistingCollaborator = item.collaborators?.some(
+      (c: ICollaborator) => c.userId.toString() === userToAdd._id.toString()
+    );
+    console.log("Is existing collaborator:", isExistingCollaborator);
+
+    if (isExistingCollaborator) {
       return res
         .status(400)
         .json({ message: "User is already a collaborator" });
     }
 
+    // Add collaborator
     const collaborator: ICollaborator = {
       userId: userToAdd._id.toString(),
       addedAt: new Date(),
     };
+
+    console.log("Adding new collaborator:", collaborator);
 
     const updatedItem = await File.findByIdAndUpdate(
       id,
@@ -546,9 +580,29 @@ export const addCollaborator = () =>
       { new: true }
     );
 
+    console.log("Updated item with new collaborator:", updatedItem);
+
     return res.status(200).json({
       message: "Collaborator added successfully",
       data: updatedItem,
+    });
+  });
+
+export const getAllSharedWithMe = () =>
+  catchAsync(async (req: IBaseRequest, res: Response, next: NextFunction) => {
+    const userId = req.user._id.toString();
+
+    const files = await File.find({
+      collaborators: { $elemMatch: { userId } },
+    });
+
+    console.log(files);
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        files,
+      },
     });
   });
 

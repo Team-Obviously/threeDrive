@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Download, Link as LinkIcon, Loader2, Share2 } from "lucide-react";
 import { BackwardIcon } from "@heroicons/react/24/outline";
 import CodeBlock from "~~/app/components/CodeBlock";
@@ -32,6 +33,7 @@ interface FileDetails {
 }
 
 export default function DocumentPage({ params }: { params: { document_id: string } }) {
+  const router = useRouter();
   const [fileDetails, setFileDetails] = useState<FileDetails | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,11 +151,9 @@ export default function DocumentPage({ params }: { params: { document_id: string
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="flex m-4   justify-start items-center">
-        <Button variant="outline" size="lg" asChild>
-          <Link href="/">
-            <BackwardIcon className="h-5 w-5 mr-2" /> Back
-          </Link>
+      <div className="flex m-4 justify-start items-center">
+        <Button variant="outline" size="lg" onClick={() => router.back()}>
+          <BackwardIcon className="h-5 w-5 mr-2" /> Back
         </Button>
       </div>
       {renderContent()}
